@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "damage-robust-ant"
+version = "0.1.0"
+description = "PPO experiments for locomotion under Ant actuator damage"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "gymnasium[mujoco]>=1.1,<2",
+    "matplotlib>=3.7",
+    "pandas>=2.0",
+    "stable-baselines3>=2.6,<3",
+    "torch>=2.3,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
