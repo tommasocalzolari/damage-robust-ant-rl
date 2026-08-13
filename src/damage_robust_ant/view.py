@@ -2,9 +2,11 @@
 
 import argparse
 import time
+from pathlib import Path
 
 import gymnasium as gym
 import numpy as np
+from stable_baselines3 import PPO
 
 from damage_robust_ant.damage import AntDamageWrapper, LEG_ACTION_INDICES
 
@@ -19,6 +21,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--steps", type=int, default=1_000)
     parser.add_argument("--strength", type=float, default=0.35)
     parser.add_argument("--speed", type=float, default=0.8)
+    parser.add_argument(
+        "--model",
+        type=Path,
+        help="saved PPO model to use instead of smooth random actions",
+    )
     parser.add_argument(
         "--damage-mode",
         choices=("nominal", "random", "fixed"),
@@ -59,7 +66,7 @@ def _highlight_damage(
 
 
 def main() -> None:
-    """Run Ant with smooth random actions in the MuJoCo viewer."""
+    """Run Ant with smooth random actions or a saved PPO policy."""
     args = parse_args()
     if args.steps < 1:
         raise SystemExit("--steps must be at least 1")
@@ -70,6 +77,7 @@ def main() -> None:
     if args.damage_mode == "fixed" and not 0.0 <= args.alpha <= 1.0:
         raise SystemExit("--alpha must be between 0 and 1")
 
+    policy = PPO.load(args.model, device="auto") if args.model else None
     base_env = gym.make("Ant-v5", render_mode="human")
     if args.damage_mode == "fixed":
         env = AntDamageWrapper(
@@ -82,7 +90,7 @@ def main() -> None:
         env = AntDamageWrapper(base_env, mode=args.damage_mode)
 
     original_colors = env.unwrapped.model.geom_rgba.copy()
-    _, info = env.reset(seed=args.seed)
+    observation, info = env.reset(seed=args.seed)
     env.action_space.seed(args.seed)
     _highlight_damage(env, info["damage_leg"], original_colors)
     env.render()
@@ -90,6 +98,7 @@ def main() -> None:
         f"damage_leg={info['damage_leg']} "
         f"damage_alpha={info['damage_alpha']:.3f}"
     )
+    print(f"controller={'smooth_random' if policy is None else args.model}")
 
     action = env.action_space.sample()
     action.fill(0.0)
@@ -97,15 +106,19 @@ def main() -> None:
 
     try:
         for step in range(args.steps):
-            if step % 40 == 0:
-                target = args.strength * env.action_space.sample()
+            if policy is None:
+                if step % 40 == 0:
+                    target = args.strength * env.action_space.sample()
 
-            action += 0.05 * (target - action)
-            _, _, terminated, truncated, _ = env.step(action)
+                action += 0.05 * (target - action)
+            else:
+                action, _ = policy.predict(observation, deterministic=True)
+
+            observation, _, terminated, truncated, _ = env.step(action)
             time.sleep(env.unwrapped.dt / args.speed)
 
             if terminated or truncated:
-                _, info = env.reset()
+                observation, info = env.reset()
                 _highlight_damage(env, info["damage_leg"], original_colors)
                 env.render()
                 print(

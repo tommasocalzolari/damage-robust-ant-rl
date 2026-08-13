@@ -78,3 +78,32 @@ programmatically inspected target joints with the body directions listed in the
 | `front_right` | 4, 5 | `hip_2`, `ankle_2` |
 | `back_left` | 6, 7 | `hip_3`, `ankle_3` |
 | `back_right` | 0, 1 | `hip_4`, `ankle_4` |
+
+## Smoke training
+
+Run short nominal and robust training checks in separate output directories:
+
+```bash
+python -m damage_robust_ant.train --condition nominal --seed 0 --timesteps 10000 --num-envs 4 --output-dir artifacts/smoke/nominal_seed_0
+python -m damage_robust_ant.train --condition robust --seed 0 --timesteps 10000 --num-envs 4 --output-dir artifacts/smoke/robust_seed_0
+```
+
+Each directory contains the final model, periodic checkpoints, monitor data,
+TensorBoard logs and a metadata file. Training refuses to reuse an existing
+output directory. Generated files under `artifacts/` are not tracked by Git.
+
+Open TensorBoard to inspect the recorded episode and training metrics:
+
+```bash
+tensorboard --logdir artifacts/smoke
+```
+
+The manual viewer can also run a saved policy, including under fixed damage:
+
+```bash
+python -m damage_robust_ant.view --model artifacts/smoke/nominal_seed_0/final_model.zip
+python -m damage_robust_ant.view --model artifacts/smoke/robust_seed_0/final_model.zip --damage-mode fixed --leg front_left --alpha 0.5
+```
+
+The 10,000-step smoke policies only verify the training pipeline and are not
+expected to walk well. Later trained models can be passed to the same command.

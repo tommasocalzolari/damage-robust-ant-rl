@@ -1,0 +1,377 @@
+"""Train a nominal or damage-robust PPO policy for Ant-v5."""
+
+import argparse
+import json
+import math
+import platform
+import subprocess
+import time
+from importlib.metadata import version
+from pathlib import Path
+
+import gymnasium as gym
+import numpy as np
+import torch
+from stable_baselines3 import PPO
+from stable_baselines3.common.buffers import RolloutBuffer
+from stable_baselines3.common.callbacks import CheckpointCallback
+from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.torch_layers import FlattenExtractor
+from stable_baselines3.common.vec_env import VecCheckNan, VecEnv
+
+from damage_robust_ant.damage import AntDamageWrapper, LEG_ACTION_INDICES
+
+
+def _positive_int(value: str) -> int:
+    parsed_value = int(value)
+    if parsed_value < 1:
+        raise argparse.ArgumentTypeError("must be at least 1")
+    return parsed_value
+
+
+def _positive_float(value: str) -> float:
+    parsed_value = float(value)
+    if parsed_value <= 0.0:
+        raise argparse.ArgumentTypeError("must be greater than 0")
+    return parsed_value
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse training command-line arguments."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--condition", choices=("nominal", "robust"), required=True)
+    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--timesteps", type=_positive_int, default=1_000_000)
+    parser.add_argument("--num-envs", type=_positive_int, default=4)
+    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--learning-rate", type=_positive_float, default=3e-4)
+    parser.add_argument("--clip-range", type=_positive_float, default=0.2)
+    return parser.parse_args(argv)
+
+
+def make_training_env(
+    condition: str,
+    num_envs: int,
+    seed: int,
+    monitor_dir: Path,
+) -> VecEnv:
+    """Create monitored vectorized Ant environments for one condition."""
+    damage_mode = "nominal" if condition == "nominal" else "random"
+
+    def make_env() -> gym.Env:
+        return AntDamageWrapper(gym.make("Ant-v5"), mode=damage_mode)
+
+    vector_env = make_vec_env(
+        make_env,
+        n_envs=num_envs,
+        seed=seed,
+        monitor_dir=str(monitor_dir),
+    )
+    return VecCheckNan(vector_env, raise_exception=True, check_inf=True)
+
+
+def make_ppo(
+    env: VecEnv,
+    learning_rate: float,
+    clip_range: float,
+    seed: int,
+    tensorboard_dir: Path,
+) -> PPO:
+    """Create PPO with the fixed project configuration."""
+    policy_kwargs = {
+        "net_arch": {"pi": [256, 256], "vf": [256, 256]},
+        "activation_fn": torch.nn.Tanh,
+        "ortho_init": True,
+        "log_std_init": 0.0,
+        "full_std": True,
+        "use_expln": False,
+        "squash_output": False,
+        "features_extractor_class": FlattenExtractor,
+        "features_extractor_kwargs": {},
+        "share_features_extractor": True,
+        "normalize_images": True,
+        "optimizer_class": torch.optim.Adam,
+        "optimizer_kwargs": {"eps": 1e-5},
+    }
+    return PPO(
+        policy="MlpPolicy",
+        env=env,
+        learning_rate=learning_rate,
+        n_steps=2_048,
+        batch_size=64,
+        n_epochs=10,
+        gamma=0.99,
+        gae_lambda=0.95,
+        clip_range=clip_range,
+        clip_range_vf=None,
+        normalize_advantage=True,
+        ent_coef=0.0,
+        vf_coef=0.5,
+        max_grad_norm=0.5,
+        use_sde=False,
+        sde_sample_freq=-1,
+        rollout_buffer_class=RolloutBuffer,
+        rollout_buffer_kwargs={},
+        target_kl=None,
+        stats_window_size=100,
+        tensorboard_log=str(tensorboard_dir),
+        policy_kwargs=policy_kwargs,
+        verbose=1,
+        seed=seed,
+        device="auto",
+    )
+
+
+def _prepare_output_dir(output_dir: Path) -> dict[str, Path]:
+    output_dir.mkdir(parents=True, exist_ok=False)
+    paths = {
+        "run": output_dir,
+        "checkpoints": output_dir / "checkpoints",
+        "monitor": output_dir / "monitor",
+        "tensorboard": output_dir / "tensorboard",
+        "model": output_dir / "final_model.zip",
+        "metadata": output_dir / "metadata.json",
+    }
+    for name in ("checkpoints", "monitor", "tensorboard"):
+        paths[name].mkdir()
+    return paths
+
+
+def _checkpoint_settings(timesteps: int, num_envs: int) -> dict[str, int]:
+    requested_interval = min(100_000, timesteps)
+    callback_frequency = max(math.ceil(requested_interval / num_envs), 1)
+    return {
+        "requested_interval_environment_steps": requested_interval,
+        "callback_frequency": callback_frequency,
+        "effective_interval_environment_steps": callback_frequency * num_envs,
+    }
+
+
+def _ppo_configuration(
+    model: PPO,
+    learning_rate: float,
+    clip_range: float,
+    seed: int,
+) -> dict[str, object]:
+    policy = model.policy
+    return {
+        "policy": "MlpPolicy",
+        "policy_class": type(policy).__name__,
+        "policy_kwargs": {
+            "net_arch": policy.net_arch,
+            "activation_fn": policy.activation_fn.__name__,
+            "ortho_init": policy.ortho_init,
+            "log_std_init": policy.log_std_init,
+            "full_std": True,
+            "use_expln": False,
+            "squash_output": policy.squash_output,
+            "features_extractor_class": type(policy.features_extractor).__name__,
+            "features_extractor_kwargs": policy.features_extractor_kwargs,
+            "share_features_extractor": policy.share_features_extractor,
+            "normalize_images": policy.normalize_images,
+            "optimizer_class": type(policy.optimizer).__name__,
+            "optimizer_defaults": policy.optimizer.defaults,
+        },
+        "learning_rate": learning_rate,
+        "learning_rate_schedule": "constant",
+        "n_steps": model.n_steps,
+        "batch_size": model.batch_size,
+        "n_epochs": model.n_epochs,
+        "gamma": model.gamma,
+        "gae_lambda": model.gae_lambda,
+        "clip_range": clip_range,
+        "clip_range_schedule": "constant",
+        "clip_range_vf": model.clip_range_vf,
+        "normalize_advantage": model.normalize_advantage,
+        "ent_coef": model.ent_coef,
+        "vf_coef": model.vf_coef,
+        "max_grad_norm": model.max_grad_norm,
+        "use_sde": model.use_sde,
+        "sde_sample_freq": model.sde_sample_freq,
+        "rollout_buffer_class": model.rollout_buffer_class.__name__,
+        "rollout_buffer_kwargs": model.rollout_buffer_kwargs,
+        "target_kl": model.target_kl,
+        "stats_window_size": model._stats_window_size,
+        "seed": seed,
+        "device_requested": "auto",
+        "device_resolved": str(model.device),
+        "reset_num_timesteps": True,
+    }
+
+
+def _damage_configuration(condition: str) -> dict[str, object]:
+    robust = condition == "robust"
+    return {
+        "mode": "random" if robust else "nominal",
+        "sample_timing": "episode_reset",
+        "fixed_within_episode": True,
+        "healthy_probability": 0.25 if robust else 1.0,
+        "leg_selection": "uniform" if robust else None,
+        "legs": list(LEG_ACTION_INDICES) if robust else [],
+        "leg_action_indices": {
+            leg: list(indices) for leg, indices in LEG_ACTION_INDICES.items()
+        },
+        "alpha_distribution": "uniform" if robust else "fixed",
+        "alpha_range": [0.25, 1.0] if robust else [1.0, 1.0],
+        "actuators_scaled_per_damaged_leg": 2,
+    }
+
+
+def _package_versions() -> dict[str, str]:
+    distributions = {
+        "project": "damage-robust-ant",
+        "gymnasium": "gymnasium",
+        "mujoco": "mujoco",
+        "stable_baselines3": "stable-baselines3",
+        "torch": "torch",
+        "numpy": "numpy",
+        "pandas": "pandas",
+        "matplotlib": "matplotlib",
+        "tensorboard": "tensorboard",
+    }
+    versions = {name: version(distribution) for name, distribution in distributions.items()}
+    versions["python"] = platform.python_version()
+    return versions
+
+
+def _git_provenance() -> tuple[str, bool]:
+    repository = Path(__file__).resolve().parents[2]
+    commit = subprocess.run(
+        ["git", "rev-parse", "--verify", "HEAD"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    status = subprocess.run(
+        ["git", "status", "--porcelain=v1", "--untracked-files=no"],
+        cwd=repository,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    return commit, not status.strip()
+
+
+def _assert_finite_model(model: PPO) -> None:
+    for name, value in model.policy.state_dict().items():
+        if not torch.isfinite(value).all():
+            raise RuntimeError(f"non-finite policy tensor: {name}")
+    for parameter_state in model.policy.optimizer.state.values():
+        for name, value in parameter_state.items():
+            if torch.is_tensor(value) and not torch.isfinite(value).all():
+                raise RuntimeError(f"non-finite optimizer tensor: {name}")
+
+
+def run_training(args: argparse.Namespace) -> Path:
+    """Train, save, and verify one PPO policy."""
+    git_commit, tracked_worktree_clean = _git_provenance()
+    paths = _prepare_output_dir(args.output_dir)
+    checkpoint_settings = _checkpoint_settings(args.timesteps, args.num_envs)
+    env: VecEnv | None = None
+    model: PPO | None = None
+
+    print(
+        f"Training condition={args.condition} seed={args.seed} "
+        f"requested_steps={args.timesteps} num_envs={args.num_envs}"
+    )
+    try:
+        env = make_training_env(
+            args.condition,
+            args.num_envs,
+            args.seed,
+            paths["monitor"],
+        )
+        model = make_ppo(
+            env,
+            args.learning_rate,
+            args.clip_range,
+            args.seed,
+            paths["tensorboard"],
+        )
+        callback = CheckpointCallback(
+            save_freq=checkpoint_settings["callback_frequency"],
+            save_path=str(paths["checkpoints"]),
+            name_prefix="ppo",
+        )
+
+        started_at = time.perf_counter()
+        model.learn(
+            total_timesteps=args.timesteps,
+            callback=callback,
+            log_interval=1,
+            tb_log_name="PPO",
+            reset_num_timesteps=True,
+        )
+        elapsed_seconds = time.perf_counter() - started_at
+        actual_timesteps = model.num_timesteps
+        model.logger.dump(actual_timesteps)
+        model.logger.close()
+
+        _assert_finite_model(model)
+        model.save(paths["model"])
+        reloaded_model = PPO.load(paths["model"], env=env, device="auto")
+        if reloaded_model.num_timesteps != actual_timesteps:
+            raise RuntimeError("reloaded model has an unexpected timestep count")
+        _assert_finite_model(reloaded_model)
+        observation = env.reset()
+        action, _ = reloaded_model.predict(observation, deterministic=True)
+        if not np.isfinite(action).all():
+            raise RuntimeError("reloaded model produced a non-finite action")
+
+        metadata = {
+            "schema_version": 1,
+            "condition": args.condition,
+            "seed": args.seed,
+            "num_envs": args.num_envs,
+            "requested_environment_steps": args.timesteps,
+            "actual_environment_steps": actual_timesteps,
+            "ppo_configuration": _ppo_configuration(
+                model,
+                args.learning_rate,
+                args.clip_range,
+                args.seed,
+            ),
+            "damage_configuration": _damage_configuration(args.condition),
+            "checkpoint_configuration": checkpoint_settings,
+            "package_versions": _package_versions(),
+            "elapsed_training_seconds": elapsed_seconds,
+            "training_fps": actual_timesteps / elapsed_seconds,
+            "git_commit": git_commit,
+            "tracked_worktree_clean": tracked_worktree_clean,
+            "validation": {
+                "finite_model_parameters": True,
+                "final_model_reloaded": True,
+                "finite_reloaded_prediction": True,
+            },
+            "outputs": {
+                "final_model": paths["model"].name,
+                "checkpoints": paths["checkpoints"].name,
+                "monitor": paths["monitor"].name,
+                "tensorboard": paths["tensorboard"].name,
+            },
+        }
+        temporary_metadata = paths["metadata"].with_suffix(".json.tmp")
+        temporary_metadata.write_text(json.dumps(metadata, indent=2) + "\n")
+        temporary_metadata.replace(paths["metadata"])
+    finally:
+        if model is not None and hasattr(model, "_logger"):
+            model.logger.close()
+        if env is not None:
+            env.close()
+
+    print(
+        f"Finished actual_steps={actual_timesteps} "
+        f"elapsed={elapsed_seconds:.1f}s fps={actual_timesteps / elapsed_seconds:.0f}"
+    )
+    print(f"Model: {paths['model']}")
+    return paths["model"]
+
+
+def main() -> None:
+    """Run training from the command line."""
+    run_training(parse_args())
+
+
+if __name__ == "__main__":
+    main()
