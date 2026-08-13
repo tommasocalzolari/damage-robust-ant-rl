@@ -104,7 +104,8 @@ preflight() {
 }
 
 if "$dry_run"; then
-  printf 'Dry run only: no tests, training, evaluation or file writes.\n\n'
+  printf 'Dry run only: no tests, training, evaluation or file writes.\n'
+  printf 'Live training summaries are printed every 5 minutes.\n\n'
 else
   preflight
   printf 'Frozen Git commit: %s\n' "$frozen_commit"
@@ -130,6 +131,8 @@ for training_condition in "${training_conditions[@]}"; do
       --num-envs 4
       --learning-rate 0.0003
       --clip-range 0.2
+      --run-index "$training_index"
+      --total-runs 6
       --output-dir "$run_dir"
     )
 

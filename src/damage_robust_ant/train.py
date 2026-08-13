@@ -14,12 +14,78 @@ import numpy as np
 import torch
 from stable_baselines3 import PPO
 from stable_baselines3.common.buffers import RolloutBuffer
-from stable_baselines3.common.callbacks import CheckpointCallback
+from stable_baselines3.common.callbacks import (
+    BaseCallback,
+    CallbackList,
+    CheckpointCallback,
+)
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.torch_layers import FlattenExtractor
 from stable_baselines3.common.vec_env import VecCheckNan, VecEnv
 
 from damage_robust_ant.damage import AntDamageWrapper, LEG_ACTION_INDICES
+
+
+PROGRESS_INTERVAL_SECONDS = 300.0
+
+
+def _format_duration(seconds: float) -> str:
+    total_minutes = max(round(seconds / 60), 0)
+    hours, minutes = divmod(total_minutes, 60)
+    if hours:
+        return f"{hours}h {minutes:02d}m"
+    return f"{minutes}m"
+
+
+class TrainingProgressCallback(BaseCallback):
+    """Print a plain-language progress summary at a fixed time interval."""
+
+    def __init__(
+        self,
+        requested_steps: int,
+        run_index: int,
+        total_runs: int,
+        interval_seconds: float = PROGRESS_INTERVAL_SECONDS,
+    ) -> None:
+        super().__init__()
+        self.requested_steps = requested_steps
+        self.run_index = run_index
+        self.total_runs = total_runs
+        self.interval_seconds = interval_seconds
+        self.started_at = 0.0
+        self.next_update_at = 0.0
+
+    def _on_training_start(self) -> None:
+        print(
+            "[Progress] Plain-language training summaries will appear "
+            "about every five minutes."
+        )
+        self.started_at = time.perf_counter()
+        self.next_update_at = self.started_at + self.interval_seconds
+
+    def _on_step(self) -> bool:
+        now = time.perf_counter()
+        if now < self.next_update_at:
+            return True
+
+        current_steps = min(self.num_timesteps, self.requested_steps)
+        elapsed_seconds = now - self.started_at
+        remaining_steps = (
+            self.requested_steps - current_steps
+            + (self.total_runs - self.run_index) * self.requested_steps
+        )
+        steps_per_second = current_steps / elapsed_seconds
+        eta = _format_duration(remaining_steps / steps_per_second)
+        percent = 100 * current_steps / self.requested_steps
+        runs_afterward = self.total_runs - self.run_index
+        print(
+            f"[Progress] Training {self.run_index}/{self.total_runs}: "
+            f"{current_steps:,}/{self.requested_steps:,} steps "
+            f"({percent:.1f}%); {runs_afterward} full runs remain afterward; "
+            f"rough training ETA {eta}."
+        )
+        self.next_update_at = now + self.interval_seconds
+        return True
 
 
 def _positive_int(value: str) -> int:
@@ -46,7 +112,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--learning-rate", type=_positive_float, default=3e-4)
     parser.add_argument("--clip-range", type=_positive_float, default=0.2)
-    return parser.parse_args(argv)
+    parser.add_argument(
+        "--run-index",
+        type=_positive_int,
+        default=1,
+        help="current run number for progress reporting",
+    )
+    parser.add_argument(
+        "--total-runs",
+        type=_positive_int,
+        default=1,
+        help="total run count for progress reporting",
+    )
+    args = parser.parse_args(argv)
+    if args.run_index > args.total_runs:
+        parser.error("--run-index cannot exceed --total-runs")
+    return args
 
 
 def make_training_env(
@@ -289,16 +370,21 @@ def run_training(args: argparse.Namespace) -> Path:
             args.seed,
             paths["tensorboard"],
         )
-        callback = CheckpointCallback(
+        checkpoint_callback = CheckpointCallback(
             save_freq=checkpoint_settings["callback_frequency"],
             save_path=str(paths["checkpoints"]),
             name_prefix="ppo",
+        )
+        progress_callback = TrainingProgressCallback(
+            requested_steps=args.timesteps,
+            run_index=args.run_index,
+            total_runs=args.total_runs,
         )
 
         started_at = time.perf_counter()
         model.learn(
             total_timesteps=args.timesteps,
-            callback=callback,
+            callback=CallbackList([checkpoint_callback, progress_callback]),
             log_interval=1,
             tb_log_name="PPO",
             reset_num_timesteps=True,

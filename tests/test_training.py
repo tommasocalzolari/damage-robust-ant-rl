@@ -8,6 +8,7 @@ import pytest
 import torch
 
 from damage_robust_ant.train import (
+    TrainingProgressCallback,
     _checkpoint_settings,
     _damage_configuration,
     _ppo_configuration,
@@ -28,6 +29,8 @@ def test_training_argument_defaults(tmp_path) -> None:
     assert args.num_envs == 4
     assert args.learning_rate == 3e-4
     assert args.clip_range == 0.2
+    assert args.run_index == 1
+    assert args.total_runs == 1
 
 
 @pytest.mark.parametrize(
@@ -51,6 +54,49 @@ def test_training_rejects_nonpositive_values(tmp_path, option, value) -> None:
     ]
     with pytest.raises(SystemExit):
         parse_args(arguments)
+
+
+def test_training_rejects_run_index_after_total(tmp_path) -> None:
+    """The human-readable run counter must describe a valid position."""
+    with pytest.raises(SystemExit):
+        parse_args(
+            [
+                "--condition",
+                "nominal",
+                "--output-dir",
+                str(tmp_path / "run"),
+                "--run-index",
+                "2",
+                "--total-runs",
+                "1",
+            ]
+        )
+
+
+def test_training_progress_callback_reports_remaining_work(
+    monkeypatch,
+    capsys,
+) -> None:
+    """The five-minute update reports steps, runs and a rough ETA."""
+    times = iter((100.0, 399.9, 400.0))
+    monkeypatch.setattr("damage_robust_ant.train.time.perf_counter", lambda: next(times))
+    callback = TrainingProgressCallback(
+        requested_steps=1_000_000,
+        run_index=2,
+        total_runs=6,
+    )
+    callback._on_training_start()
+    assert "about every five minutes" in capsys.readouterr().out
+    callback.num_timesteps = 250_000
+
+    assert callback._on_step()
+    assert capsys.readouterr().out == ""
+    assert callback._on_step()
+    output = capsys.readouterr().out
+    assert "Training 2/6" in output
+    assert "250,000/1,000,000 steps (25.0%)" in output
+    assert "4 full runs remain afterward" in output
+    assert "rough training ETA 1h 35m" in output
 
 
 @pytest.mark.parametrize(
@@ -157,11 +203,14 @@ def test_main_experiment_launcher_has_fixed_command_matrix(tmp_path) -> None:
         line for line in lines if line.startswith("DRY RUN EVALUATION:")
     ]
 
+    assert "Live training summaries are printed every 5 minutes." in lines
     assert len(training_lines) == 6
     assert all("--timesteps 1000000" in line for line in training_lines)
     assert all("--num-envs 4" in line for line in training_lines)
     assert all("--learning-rate 0.0003" in line for line in training_lines)
     assert all("--clip-range 0.2" in line for line in training_lines)
+    assert sum("--run-index" in line for line in training_lines) == 6
+    assert all("--total-runs 6" in line for line in training_lines)
     for condition in ("nominal", "robust"):
         for seed in range(3):
             expected = f"--condition {condition} --seed {seed} "

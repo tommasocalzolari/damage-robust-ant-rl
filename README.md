@@ -190,6 +190,12 @@ the full process should take roughly four hours on the machine used for the
 pilot. If a command fails or the process is interrupted, it stops and preserves
 the partial outputs instead of deleting or reusing them.
 
+The normal PPO tables remain visible as training runs. About every five minutes,
+an additional progress line reports the current run, its completed steps, the
+number of full runs still waiting and a rough training-time estimate. These
+updates are also saved in that run's console log. The estimate is recalculated
+from the current run's speed, so it can change during the experiment.
+
 To inspect all planned commands without training or writing any files, run
 `./run_main_experiment.sh --dry-run`.
 
