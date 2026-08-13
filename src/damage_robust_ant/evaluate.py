@@ -330,7 +330,11 @@ def _write_results(
     output_csv.parent.mkdir(parents=True, exist_ok=True)
     temporary_csv = output_csv.with_name(f"{output_csv.name}.tmp")
     with temporary_csv.open("w", newline="") as csv_file:
-        writer = csv.DictWriter(csv_file, fieldnames=CSV_COLUMNS)
+        writer = csv.DictWriter(
+            csv_file,
+            fieldnames=CSV_COLUMNS,
+            lineterminator="\n",
+        )
         writer.writeheader()
         writer.writerows(rows)
     if output_csv.exists() and not append:

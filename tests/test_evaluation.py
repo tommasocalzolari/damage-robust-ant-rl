@@ -234,6 +234,7 @@ def test_run_writes_exact_schema_appends_and_closes(monkeypatch, tmp_path) -> No
         rows = list(reader)
     assert reader.fieldnames == CSV_COLUMNS
     assert len(rows) == 2
+    assert b"\r\n" not in first_args.output_csv.read_bytes()
     assert {row["policy_training_condition"] for row in rows} == {
         "nominal",
         "robust",
