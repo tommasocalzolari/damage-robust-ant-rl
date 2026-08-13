@@ -229,12 +229,63 @@ These settings are frozen before the main results are inspected. Main training
 starts only after this configuration is reviewed and committed, and parameters
 will not be changed in response to the main results.
 
+## Post-hoc overnight locomotion run
+
+The main evaluation identified nominal seed 1 as the weakest nominal policy by
+healthy forward distance and robust seed 2 as the strongest robust policy by
+mean forward distance across the four legs at `alpha=0.5`. A separate overnight
+launcher develops those two selected seeds further:
+
+```bash
+./run_overnight_gait_training.sh
+```
+
+This is an exploratory follow-up, not part of the six-policy nominal-versus-
+robust comparison. Each policy starts again from a new network with its selected
+seed and the original fixed PPO settings; the one-million-step model weights are
+not resumed. Each run starts at timestep zero and continues uninterrupted for
+3–5 million requested steps; it is not a continuation of the main model. The
+saved models do not contain the simulator and random-number-generator states
+needed for an exact continuation.
+
+The launcher trains the policies sequentially, saves a complete-rollout
+checkpoint about every 250,000 requested steps and evaluates every 500,000
+steps from one million onward. It makes stopping decisions after 3, 4 and 5
+million requested steps. The five-million hard limit is never crossed. If no
+checkpoint passes by then, the best checkpoint is still saved but is clearly
+marked as not meeting the criteria. “Best” means highest target-condition
+forward distance, followed by lower early termination, higher speed, higher
+distance in the other condition and then the earlier checkpoint.
+
+Every validation uses deterministic actions and episode seeds 200 through 209
+under healthy operation and under each of the four damaged legs at `alpha=0.5`.
+The nominal policy is judged on its ten healthy episodes. The robust policy is
+judged on its forty pooled damaged episodes. A candidate passes when its early
+termination rate is at most 10%, mean forward speed is at least 0.5 m/s and at
+least 90% of its episodes move forward. Seeds 200 through 209 are checkpoint-
+selection data and must not be reused for the later held-out evaluation.
+
+These are practical sustained-locomotion criteria, not a biomechanical gait-
+cycle detector: hopping or sliding could also pass. The launcher prints viewer
+commands at the end so the selected policies can be checked visually. Keep the
+terminal open; the full run is expected to take roughly 3.5 to 6 hours on the
+machine used for the main experiment, with a status update about every five
+minutes. Outputs and logs are written under `artifacts/overnight/` and remain
+untracked. An interrupted run preserves its partial files and requires review
+before a deliberate fresh restart.
+
+Use `./run_overnight_gait_training.sh --dry-run` to inspect both commands
+without running tests, training or evaluation. Before a real run, the launcher
+also verifies that `results/main_episode_results.csv` is the unchanged source
+used for the two seed choices.
+
 ## Repository structure
 
 - `src/damage_robust_ant/`: damage wrapper and training, evaluation and viewing
   commands
 - `tests/`: automated tests for the environment and experiment pipeline
 - `run_main_experiment.sh`: fixed main training and evaluation launcher
+- `run_overnight_gait_training.sh`: selected-seed staged locomotion launcher
 - `artifacts/`: local generated models, checkpoints and raw logs; ignored by
   Git
 - `pyproject.toml`: package metadata and dependencies
