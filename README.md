@@ -1,8 +1,20 @@
 # Damage-Robust Ant RL
 
-This project studies how training with randomized single-leg actuator
-degradation affects the robustness and healthy performance of a PPO controller
-in Gymnasium's `Ant-v5` environment.
+## Research question
+
+How does training under randomized single-leg actuator degradation affect the
+robustness and healthy performance of a PPO locomotion controller?
+
+Stable Baselines3 provides the PPO implementation. This repository implements
+the Ant damage wrapper and the commands used to train, inspect and evaluate the
+policies.
+
+## Training conditions
+
+Both conditions use the same PPO configuration. Nominal training leaves all
+actuator commands unchanged. Robust training samples damage once per episode:
+25% of episodes remain healthy; otherwise one leg is selected uniformly and
+its remaining actuator strength is sampled uniformly from `[0.25, 1.0]`.
 
 ## Setup
 
@@ -21,6 +33,9 @@ The explicit PyTorch command installs the CPU build, which is sufficient for
 the tests and avoids downloading unused CUDA libraries on machines without an
 NVIDIA GPU.
 
+Run the remaining commands from the repository root with the environment
+active. In a new terminal, reactivate it with `source .venv/bin/activate`.
+
 ## Test
 
 Run the test suite from the repository root:
@@ -29,8 +44,9 @@ Run the test suite from the repository root:
 python -m pytest
 ```
 
-The smoke test starts `Ant-v5`, resets it with a fixed seed, and takes one
-simulation step to verify that the MuJoCo environment is available.
+The suite covers the damage wrapper, training configuration and evaluation
+pipeline. It also starts `Ant-v5`, resets it and takes a simulation step to
+verify that MuJoCo works.
 
 ## Manual viewer
 
@@ -40,9 +56,9 @@ Open a MuJoCo window with smooth, low-strength random actions:
 python -m damage_robust_ant.view
 ```
 
-This is a visual check rather than an automated test. The Ant is not controlled
-by a trained policy yet, so it may lose its balance. Use `--speed 0.25` for
-slower playback or `--strength 0.2` for gentler actuator commands.
+This is a visual check rather than an automated test. Without `--model`, the
+Ant uses random actions and may lose its balance. Use `--speed 0.25` for slower
+playback or `--strength 0.2` for gentler actuator commands.
 
 The viewer also supports randomized training damage and fixed evaluation
 damage:
@@ -84,13 +100,20 @@ programmatically inspected target joints with the body directions listed in the
 Run short nominal and robust training checks in separate output directories:
 
 ```bash
-python -m damage_robust_ant.train --condition nominal --seed 0 --timesteps 10000 --num-envs 4 --output-dir artifacts/smoke/nominal_seed_0
-python -m damage_robust_ant.train --condition robust --seed 0 --timesteps 10000 --num-envs 4 --output-dir artifacts/smoke/robust_seed_0
+python -m damage_robust_ant.train \
+  --condition nominal --seed 0 --timesteps 10000 --num-envs 4 \
+  --output-dir artifacts/smoke/nominal_seed_0
+
+python -m damage_robust_ant.train \
+  --condition robust --seed 0 --timesteps 10000 --num-envs 4 \
+  --output-dir artifacts/smoke/robust_seed_0
 ```
 
 Each directory contains the final model, periodic checkpoints, monitor data,
-TensorBoard logs and a metadata file. Training refuses to reuse an existing
-output directory. Generated files under `artifacts/` are not tracked by Git.
+TensorBoard logs and a metadata file. All smoke outputs are stored under
+`artifacts/smoke/`, and training refuses to reuse an existing output directory.
+Generated models, checkpoints, raw Monitor and TensorBoard logs, and videos
+under `artifacts/` are ignored by Git.
 
 Open TensorBoard to inspect the recorded episode and training metrics:
 
@@ -98,11 +121,19 @@ Open TensorBoard to inspect the recorded episode and training metrics:
 tensorboard --logdir artifacts/smoke
 ```
 
+Leave the command running and open <http://localhost:6006> in a browser. Press
+`Ctrl+C` in the terminal to stop it. The reduced-feature warning about
+TensorFlow is harmless here because policy training uses PyTorch.
+
 The manual viewer can also run a saved policy, including under fixed damage:
 
 ```bash
-python -m damage_robust_ant.view --model artifacts/smoke/nominal_seed_0/final_model.zip
-python -m damage_robust_ant.view --model artifacts/smoke/robust_seed_0/final_model.zip --damage-mode fixed --leg front_left --alpha 0.5
+python -m damage_robust_ant.view \
+  --model artifacts/smoke/nominal_seed_0/final_model.zip
+
+python -m damage_robust_ant.view \
+  --model artifacts/smoke/robust_seed_0/final_model.zip \
+  --damage-mode fixed --leg front_left --alpha 0.5
 ```
 
 The 10,000-step smoke policies only verify the training pipeline and are not
@@ -114,8 +145,19 @@ Evaluate a policy without further learning under a healthy or fixed-damage
 condition:
 
 ```bash
-python -m damage_robust_ant.evaluate --model artifacts/smoke/nominal_seed_0/final_model.zip --training-condition nominal --training-seed 0 --damage-leg healthy --alpha 1.0 --evaluation-seed 100 --episodes 1 --output-csv artifacts/smoke/evaluation/episode_results.csv
-python -m damage_robust_ant.evaluate --model artifacts/smoke/nominal_seed_0/final_model.zip --training-condition nominal --training-seed 0 --damage-leg front_left --alpha 0.5 --evaluation-seed 100 --episodes 1 --output-csv artifacts/smoke/evaluation/episode_results.csv --append
+python -m damage_robust_ant.evaluate \
+  --model artifacts/smoke/nominal_seed_0/final_model.zip \
+  --training-condition nominal --training-seed 0 \
+  --damage-leg healthy --alpha 1.0 \
+  --evaluation-seed 100 --episodes 1 \
+  --output-csv artifacts/smoke/evaluation/episode_results.csv
+
+python -m damage_robust_ant.evaluate \
+  --model artifacts/smoke/nominal_seed_0/final_model.zip \
+  --training-condition nominal --training-seed 0 \
+  --damage-leg front_left --alpha 0.5 \
+  --evaluation-seed 100 --episodes 1 \
+  --output-csv artifacts/smoke/evaluation/episode_results.csv --append
 ```
 
 The evaluation seed is the first episode seed; later episodes use consecutive
@@ -123,3 +165,12 @@ seeds so that identical starting states can be reused across policies and
 damage conditions. The CSV records return, duration, forward movement and mean
 absolute commands for all eight actuators. Raw and applied command magnitudes
 are controller-command proxies, not measurements of physical energy.
+
+## Repository structure
+
+- `src/damage_robust_ant/`: damage wrapper and training, evaluation and viewing
+  commands
+- `tests/`: automated tests for the environment and experiment pipeline
+- `artifacts/`: local generated models, checkpoints and raw logs; ignored by
+  Git
+- `pyproject.toml`: package metadata and dependencies
