@@ -107,3 +107,19 @@ python -m damage_robust_ant.view --model artifacts/smoke/robust_seed_0/final_mod
 
 The 10,000-step smoke policies only verify the training pipeline and are not
 expected to walk well. Later trained models can be passed to the same command.
+
+## Controlled evaluation
+
+Evaluate a policy without further learning under a healthy or fixed-damage
+condition:
+
+```bash
+python -m damage_robust_ant.evaluate --model artifacts/smoke/nominal_seed_0/final_model.zip --training-condition nominal --training-seed 0 --damage-leg healthy --alpha 1.0 --evaluation-seed 100 --episodes 1 --output-csv artifacts/smoke/evaluation/episode_results.csv
+python -m damage_robust_ant.evaluate --model artifacts/smoke/nominal_seed_0/final_model.zip --training-condition nominal --training-seed 0 --damage-leg front_left --alpha 0.5 --evaluation-seed 100 --episodes 1 --output-csv artifacts/smoke/evaluation/episode_results.csv --append
+```
+
+The evaluation seed is the first episode seed; later episodes use consecutive
+seeds so that identical starting states can be reused across policies and
+damage conditions. The CSV records return, duration, forward movement and mean
+absolute commands for all eight actuators. Raw and applied command magnitudes
+are controller-command proxies, not measurements of physical energy.
