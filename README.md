@@ -166,11 +166,69 @@ damage conditions. The CSV records return, duration, forward movement and mean
 absolute commands for all eight actuators. Raw and applied command magnitudes
 are controller-command proxies, not measurements of physical energy.
 
+## Fixed main experiment
+
+The main experiment uses the committed PPO configuration without further
+tuning: `Ant-v5`, an `MlpPolicy` with separate `[256, 256]` actor and critic
+networks, four environments, a learning rate of `3e-4`, a clip range of `0.2`
+and 1,000,000 requested environment steps per run. The remaining PPO settings
+are fixed in the training module and recorded in each run's metadata. Nominal
+and robust runs use identical PPO settings; only the training damage
+distribution described above differs.
+
+After this configuration is reviewed and committed, start the complete main
+experiment with one command:
+
+```bash
+./run_main_experiment.sh
+```
+
+The launcher uses the project's `.venv` directly, so it does not need to be
+activated first. It runs the tests, trains all six policies sequentially and
+then performs the complete evaluation automatically. Keep the terminal open;
+the full process should take roughly four hours on the machine used for the
+pilot. If a command fails or the process is interrupted, it stops and preserves
+the partial outputs instead of deleting or reusing them.
+
+To inspect all planned commands without training or writing any files, run
+`./run_main_experiment.sh --dry-run`.
+
+This fixes the training matrix as follows:
+
+| Training condition | Seeds | Requested steps per run | Output directory |
+| --- | --- | ---: | --- |
+| Nominal | 0, 1, 2 | 1,000,000 | `artifacts/main/nominal_seed_<seed>/` |
+| Robust | 0, 1, 2 | 1,000,000 | `artifacts/main/robust_seed_<seed>/` |
+
+Every command initializes a new network; smoke and pilot models and checkpoints
+are not reused. PPO finishes complete rollouts, so each run is expected to
+record 1,007,616 actual steps rather than stop partway through a rollout. Each
+run also records its package versions, Git commit, tracked-worktree status,
+resolved configuration, elapsed time and training speed in `metadata.json`.
+
+The six final policies will be evaluated deterministically with the same ten
+episode seeds, 100 through 109, under this fixed matrix:
+
+| Evaluation condition | Damage leg | Alpha | Episodes per policy |
+| --- | --- | ---: | ---: |
+| Healthy | `healthy` | 1.0 | 10 |
+| Moderate damage | Each of the four legs | 0.5 | 10 per leg |
+| Complete failure | Each of the four legs | 0.0 | 10 per leg |
+
+The four legs are `front_left`, `front_right`, `back_left` and `back_right`.
+This gives nine conditions per policy and 540 episode rows across the six
+policies. The rows will be written to `results/main_episode_results.csv`.
+
+These settings are frozen before the main results are inspected. Main training
+starts only after this configuration is reviewed and committed, and parameters
+will not be changed in response to the main results.
+
 ## Repository structure
 
 - `src/damage_robust_ant/`: damage wrapper and training, evaluation and viewing
   commands
 - `tests/`: automated tests for the environment and experiment pipeline
+- `run_main_experiment.sh`: fixed main training and evaluation launcher
 - `artifacts/`: local generated models, checkpoints and raw logs; ignored by
   Git
 - `pyproject.toml`: package metadata and dependencies

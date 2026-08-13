@@ -1,6 +1,8 @@
 """Tests for the PPO training command."""
 
 import argparse
+import subprocess
+from pathlib import Path
 
 import pytest
 import torch
@@ -137,3 +139,49 @@ def test_damage_metadata_describes_both_conditions() -> None:
     assert robust["healthy_probability"] == 0.25
     assert robust["leg_selection"] == "uniform"
     assert robust["alpha_range"] == [0.25, 1.0]
+
+
+def test_main_experiment_launcher_has_fixed_command_matrix(tmp_path) -> None:
+    """The launcher plans every frozen training and evaluation command once."""
+    repository = Path(__file__).resolve().parents[1]
+    completed = subprocess.run(
+        ["bash", str(repository / "run_main_experiment.sh"), "--dry-run"],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    lines = completed.stdout.splitlines()
+    training_lines = [line for line in lines if line.startswith("DRY RUN TRAINING:")]
+    evaluation_lines = [
+        line for line in lines if line.startswith("DRY RUN EVALUATION:")
+    ]
+
+    assert len(training_lines) == 6
+    assert all("--timesteps 1000000" in line for line in training_lines)
+    assert all("--num-envs 4" in line for line in training_lines)
+    assert all("--learning-rate 0.0003" in line for line in training_lines)
+    assert all("--clip-range 0.2" in line for line in training_lines)
+    for condition in ("nominal", "robust"):
+        for seed in range(3):
+            expected = f"--condition {condition} --seed {seed} "
+            assert sum(expected in line for line in training_lines) == 1
+
+    assert len(evaluation_lines) == 54
+    assert "--append" not in evaluation_lines[0]
+    assert sum("--append" in line for line in evaluation_lines) == 53
+    assert all("--evaluation-seed 100" in line for line in evaluation_lines)
+    assert all("--episodes 10" in line for line in evaluation_lines)
+    for condition in ("nominal", "robust"):
+        for seed in range(3):
+            expected = (
+                f"--training-condition {condition} --training-seed {seed} "
+            )
+            assert sum(expected in line for line in evaluation_lines) == 9
+    assert sum(
+        "--damage-leg healthy --alpha 1.0" in line for line in evaluation_lines
+    ) == 6
+    for alpha in ("0.5", "0.0"):
+        for leg in ("front_left", "front_right", "back_left", "back_right"):
+            expected = f"--damage-leg {leg} --alpha {alpha}"
+            assert sum(expected in line for line in evaluation_lines) == 6
