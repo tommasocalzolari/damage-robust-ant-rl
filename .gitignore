@@ -5,9 +5,14 @@ __pycache__/
 .pytest_cache/
 build/
 dist/
+*.tmp
+*.swp
 
 # Generated experiment outputs
+artifacts/
+checkpoints/
 logs/
 models/
-results/
+runs/
 videos/
+events.out.tfevents.*

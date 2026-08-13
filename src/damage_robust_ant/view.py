@@ -4,6 +4,12 @@ import argparse
 import time
 
 import gymnasium as gym
+import numpy as np
+
+from damage_robust_ant.damage import AntDamageWrapper, LEG_ACTION_INDICES
+
+
+DAMAGE_COLOR = (0.9, 0.1, 0.1, 1.0)
 
 
 def parse_args() -> argparse.Namespace:
@@ -12,8 +18,44 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--steps", type=int, default=1_000)
     parser.add_argument("--strength", type=float, default=0.35)
-    parser.add_argument("--speed", type=float, default=0.5)
+    parser.add_argument("--speed", type=float, default=0.8)
+    parser.add_argument(
+        "--damage-mode",
+        choices=("nominal", "random", "fixed"),
+        default="nominal",
+    )
+    parser.add_argument(
+        "--leg",
+        choices=tuple(LEG_ACTION_INDICES),
+        default="front_left",
+    )
+    parser.add_argument("--alpha", type=float, default=0.5)
     return parser.parse_args()
+
+
+def _highlight_damage(
+    env: AntDamageWrapper,
+    damage_leg: str | None,
+    original_colors: np.ndarray,
+) -> None:
+    """Tint the selected leg red and restore all other geometry colors."""
+    model = env.unwrapped.model
+    model.geom_rgba[:] = original_colors
+    if damage_leg is None:
+        return
+
+    hip_action_index = LEG_ACTION_INDICES[damage_leg][0]
+    hip_joint_id = int(model.actuator_trnid[hip_action_index, 0])
+    hip_body_id = int(model.jnt_bodyid[hip_joint_id])
+    leg_root_body_id = int(model.body_parentid[hip_body_id])
+
+    for geom_id, geom_body_id in enumerate(model.geom_bodyid):
+        body_id = int(geom_body_id)
+        while body_id != 0:
+            if body_id == leg_root_body_id:
+                model.geom_rgba[geom_id] = DAMAGE_COLOR
+                break
+            body_id = int(model.body_parentid[body_id])
 
 
 def main() -> None:
@@ -25,10 +67,29 @@ def main() -> None:
         raise SystemExit("--strength must be between 0 and 1")
     if args.speed <= 0.0:
         raise SystemExit("--speed must be greater than 0")
+    if args.damage_mode == "fixed" and not 0.0 <= args.alpha <= 1.0:
+        raise SystemExit("--alpha must be between 0 and 1")
 
-    env = gym.make("Ant-v5", render_mode="human")
-    env.reset(seed=args.seed)
+    base_env = gym.make("Ant-v5", render_mode="human")
+    if args.damage_mode == "fixed":
+        env = AntDamageWrapper(
+            base_env,
+            mode="fixed",
+            fixed_leg=args.leg,
+            fixed_alpha=args.alpha,
+        )
+    else:
+        env = AntDamageWrapper(base_env, mode=args.damage_mode)
+
+    original_colors = env.unwrapped.model.geom_rgba.copy()
+    _, info = env.reset(seed=args.seed)
     env.action_space.seed(args.seed)
+    _highlight_damage(env, info["damage_leg"], original_colors)
+    env.render()
+    print(
+        f"damage_leg={info['damage_leg']} "
+        f"damage_alpha={info['damage_alpha']:.3f}"
+    )
 
     action = env.action_space.sample()
     action.fill(0.0)
@@ -44,7 +105,13 @@ def main() -> None:
             time.sleep(env.unwrapped.dt / args.speed)
 
             if terminated or truncated:
-                env.reset()
+                _, info = env.reset()
+                _highlight_damage(env, info["damage_leg"], original_colors)
+                env.render()
+                print(
+                    f"damage_leg={info['damage_leg']} "
+                    f"damage_alpha={info['damage_alpha']:.3f}"
+                )
                 action.fill(0.0)
                 target.fill(0.0)
     except KeyboardInterrupt:

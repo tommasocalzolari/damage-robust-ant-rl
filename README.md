@@ -43,3 +43,38 @@ python -m damage_robust_ant.view
 This is a visual check rather than an automated test. The Ant is not controlled
 by a trained policy yet, so it may lose its balance. Use `--speed 0.25` for
 slower playback or `--strength 0.2` for gentler actuator commands.
+
+The viewer also supports randomized training damage and fixed evaluation
+damage:
+
+```bash
+python -m damage_robust_ant.view --damage-mode random
+python -m damage_robust_ant.view --damage-mode fixed --leg front_left --alpha 0.5
+```
+
+The damaged leg is shown in red. Random mode updates the highlight at each
+episode reset, while healthy episodes retain the original colors. The terminal
+also prints the selected leg and its remaining actuator strength.
+
+## Actuator damage
+
+Damage is sampled once during reset and remains fixed until the episode ends.
+Random mode produces a healthy episode 25% of the time. Otherwise, it selects
+one leg uniformly and samples its remaining strength from `[0.25, 1.0]`. Fixed
+mode accepts a chosen leg and strength in `[0, 1]`. The same strength multiplier
+is applied to that leg's hip and ankle commands.
+
+After each step, the wrapper retains the original command in `policy_action`
+and the scaled command sent to Ant in `applied_action`. These values support
+later command-magnitude analysis; they are not physical energy measurements.
+
+The MuJoCo actuator objects in `Ant-v5` are unnamed. The mapping combines the
+programmatically inspected target joints with the body directions listed in the
+[official Ant-v5 documentation](https://gymnasium.farama.org/environments/mujoco/ant/):
+
+| Leg | Action indices | Target joints |
+| --- | --- | --- |
+| `front_left` | 2, 3 | `hip_1`, `ankle_1` |
+| `front_right` | 4, 5 | `hip_2`, `ankle_2` |
+| `back_left` | 6, 7 | `hip_3`, `ankle_3` |
+| `back_right` | 0, 1 | `hip_4`, `ankle_4` |
