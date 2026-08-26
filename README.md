@@ -139,6 +139,30 @@ python -m damage_robust_ant.view \
 The 10,000-step smoke policies only verify the training pipeline and are not
 expected to walk well. Later trained models can be passed to the same command.
 
+## Manual PPO walking gate
+
+The corrected training path adds observation and reward normalization, a KL
+early-stop guard, ten PPO update epochs, a learning-rate schedule from
+`3e-4` to `1e-4`, and a walking-first Ant reward setting
+(`healthy_reward=3.0`) so early falls are more costly without rewarding
+standing still too strongly. Before spending more
+time on robust training, run one bounded
+nominal pilot yourself:
+
+```bash
+./run_ppo_gate.sh
+```
+
+The script runs the test suite, trains 500,000 requested steps, evaluates the
+200,000-step and final checkpoints on ten deterministic healthy episodes, and
+checks model reloads, normalization files, TensorBoard KL/clip diagnostics,
+finite values, survival and horizontal distance from the episode start. It
+reports speed and forward-only distance, but neither is used as a pass/fail rule. It exits nonzero
+with `STOP` if the predefined walking gate is not met. It never starts robust
+training, reuses an existing directory, deletes artifacts, or resumes a
+partial run. Use `--dry-run` first to inspect the commands. Review a passing
+run manually before choosing the next experiment.
+
 ## Controlled evaluation
 
 Evaluate a policy without further learning under a healthy or fixed-damage
@@ -168,13 +192,13 @@ are controller-command proxies, not measurements of physical energy.
 
 ## Fixed main experiment
 
-The main experiment uses the committed PPO configuration without further
-tuning: `Ant-v5`, an `MlpPolicy` with separate `[256, 256]` actor and critic
-networks, four environments, a learning rate of `3e-4`, a clip range of `0.2`
-and 1,000,000 requested environment steps per run. The remaining PPO settings
-are fixed in the training module and recorded in each run's metadata. Nominal
-and robust runs use identical PPO settings; only the training damage
-distribution described above differs.
+The final experiment uses the walking configuration established by the
+successful nominal seed 6 recovery run: `Ant-v5` with `healthy_reward=3.0`, an
+`MlpPolicy` with separate `[256, 256]` actor and critic networks, four
+environments, normalized observations and rewards, a learning rate annealed
+from `3e-4` to `1e-4`, a clip range of `0.2`, `target_kl=0.02`, and 5,000,000
+requested environment steps per run. Nominal and robust runs use identical PPO
+settings; only the training damage distribution described above differs.
 
 After this configuration is reviewed and committed, start the complete main
 experiment with one command:
@@ -186,9 +210,9 @@ experiment with one command:
 The launcher uses the project's `.venv` directly, so it does not need to be
 activated first. It runs the tests, trains all six policies sequentially and
 then performs the complete evaluation automatically. Keep the terminal open;
-the full process should take roughly four hours on the machine used for the
-pilot. If a command fails or the process is interrupted, it stops and preserves
-the partial outputs instead of deleting or reusing them.
+the six 5-million-step runs will take several hours. If a command fails or the
+process is interrupted, it stops and preserves the partial outputs instead of
+deleting or reusing them.
 
 The normal PPO tables remain visible as training runs. About every five minutes,
 an additional progress line reports the current run, its completed steps, the
@@ -203,17 +227,19 @@ This fixes the training matrix as follows:
 
 | Training condition | Seeds | Requested steps per run | Output directory |
 | --- | --- | ---: | --- |
-| Nominal | 0, 1, 2 | 1,000,000 | `artifacts/main/nominal_seed_<seed>/` |
-| Robust | 0, 1, 2 | 1,000,000 | `artifacts/main/robust_seed_<seed>/` |
+| Nominal | 5, 6, 7 | 5,000,000 | `artifacts/final/nominal_seed_<seed>/` |
+| Robust | 5, 6, 7 | 5,000,000 | `artifacts/final/robust_seed_<seed>/` |
 
 Every command initializes a new network; smoke and pilot models and checkpoints
-are not reused. PPO finishes complete rollouts, so each run is expected to
-record 1,007,616 actual steps rather than stop partway through a rollout. Each
+are not reused. In particular, `artifacts/recovery/nominal_seed_6_5m/` is kept
+untouched as the known working policy. PPO finishes complete rollouts, so each
+new run is expected to record 5,005,312 actual steps rather than stop partway
+through a rollout. Each
 run also records its package versions, Git commit, tracked-worktree status,
 resolved configuration, elapsed time and training speed in `metadata.json`.
 
 The six final policies will be evaluated deterministically with the same ten
-episode seeds, 100 through 109, under this fixed matrix:
+episode seeds, 300 through 309, under this fixed matrix:
 
 | Evaluation condition | Damage leg | Alpha | Episodes per policy |
 | --- | --- | ---: | ---: |
@@ -223,7 +249,9 @@ episode seeds, 100 through 109, under this fixed matrix:
 
 The four legs are `front_left`, `front_right`, `back_left` and `back_right`.
 This gives nine conditions per policy and 540 episode rows across the six
-policies. The rows will be written to `results/main_episode_results.csv`.
+policies. The rows, evaluation log, models, normalizers and training logs will
+all be written under `artifacts/final/`; the combined CSV is
+`artifacts/final/evaluation/episode_results.csv`.
 
 These settings are frozen before the main results are inspected. Main training
 starts only after this configuration is reviewed and committed, and parameters

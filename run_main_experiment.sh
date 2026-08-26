@@ -6,10 +6,11 @@ repo_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 cd "$repo_dir"
 
 python_bin="$repo_dir/.venv/bin/python"
-results_csv="results/main_episode_results.csv"
-evaluation_log="artifacts/main/evaluation.log"
+final_dir="artifacts/final"
+results_csv="$final_dir/evaluation/episode_results.csv"
+evaluation_log="$final_dir/evaluation/evaluation.log"
 training_conditions=(nominal robust)
-training_seeds=(0 1 2)
+training_seeds=(5 6 7)
 damage_legs=(front_left front_right back_left back_right)
 frozen_commit=""
 dry_run=false
@@ -60,8 +61,7 @@ assert_frozen_state() {
 }
 
 preflight() {
-  local git_root worktree_status run_dir log_file target
-  local targets=("$results_csv" "${results_csv}.tmp" "$evaluation_log")
+  local git_root worktree_status
 
   if [[ ! -x "$python_bin" ]]; then
     printf 'Missing project environment: %s\n' "$python_bin" >&2
@@ -78,27 +78,18 @@ preflight() {
     exit 1
   fi
 
-  worktree_status="$(git status --porcelain=v1)"
+  worktree_status="$(git status --porcelain=v1 --untracked-files=no)"
   if [[ -n "$worktree_status" ]]; then
-    printf 'Commit or remove outstanding files before starting:\n%s\n' \
+    printf 'Commit tracked changes before starting:\n%s\n' \
       "$worktree_status" >&2
     exit 1
   fi
 
-  for training_condition in "${training_conditions[@]}"; do
-    for training_seed in "${training_seeds[@]}"; do
-      run_dir="artifacts/main/${training_condition}_seed_${training_seed}"
-      log_file="${run_dir}.log"
-      targets+=("$run_dir" "$log_file")
-    done
-  done
-
-  for target in "${targets[@]}"; do
-    if [[ -e "$target" ]]; then
-      printf 'Refusing to overwrite existing output: %s\n' "$target" >&2
-      exit 1
-    fi
-  done
+  if [[ -e "$final_dir" ]]; then
+    printf 'Refusing to overwrite existing final output: %s\n' "$final_dir" >&2
+    printf 'Move it aside only after inspecting it, then start a fresh run.\n' >&2
+    exit 1
+  fi
 
   frozen_commit="$(git rev-parse --verify HEAD)"
 }
@@ -113,7 +104,8 @@ else
   PYTHONDONTWRITEBYTECODE=1 \
     "$python_bin" -m pytest -p no:cacheprovider -q
   assert_frozen_state
-  mkdir -p artifacts/main results
+  mkdir -p "$final_dir/evaluation"
+  export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
   printf '\nLeave this terminal open until training and evaluation finish.\n'
 fi
 
@@ -121,13 +113,13 @@ training_index=0
 for training_condition in "${training_conditions[@]}"; do
   for training_seed in "${training_seeds[@]}"; do
     training_index=$((training_index + 1))
-    run_dir="artifacts/main/${training_condition}_seed_${training_seed}"
+    run_dir="$final_dir/${training_condition}_seed_${training_seed}"
     log_file="${run_dir}.log"
     training_command=(
       "$python_bin" -u -m damage_robust_ant.train
       --condition "$training_condition"
       --seed "$training_seed"
-      --timesteps 1000000
+      --timesteps 5000000
       --num-envs 4
       --learning-rate 0.0003
       --clip-range 0.2
@@ -145,7 +137,9 @@ for training_condition in "${training_conditions[@]}"; do
 
     assert_frozen_state
     "${training_command[@]}" 2>&1 | tee "$log_file"
-    if [[ ! -f "$run_dir/final_model.zip" || ! -f "$run_dir/metadata.json" ]]; then
+    if [[ ! -f "$run_dir/final_model.zip" || \
+          ! -f "$run_dir/vecnormalize.pkl" || \
+          ! -f "$run_dir/metadata.json" ]]; then
       printf 'Training finished without the required outputs: %s\n' \
         "$run_dir" >&2
       exit 1
@@ -164,21 +158,24 @@ evaluate_condition() {
   local training_seed=$2
   local damage_leg=$3
   local damage_alpha=$4
-  local model append_args=() evaluation_command
+  local run_dir model normalizer append_args=() evaluation_command
 
   evaluation_index=$((evaluation_index + 1))
-  model="artifacts/main/${training_condition}_seed_${training_seed}/final_model.zip"
+  run_dir="$final_dir/${training_condition}_seed_${training_seed}"
+  model="$run_dir/final_model.zip"
+  normalizer="$run_dir/vecnormalize.pkl"
   if (( evaluation_index > 1 )); then
     append_args=(--append)
   fi
   evaluation_command=(
     "$python_bin" -m damage_robust_ant.evaluate
     --model "$model"
+    --normalizer "$normalizer"
     --training-condition "$training_condition"
     --training-seed "$training_seed"
     --damage-leg "$damage_leg"
     --alpha "$damage_alpha"
-    --evaluation-seed 100
+    --evaluation-seed 300
     --episodes 10
     --output-csv "$results_csv"
     "${append_args[@]}"
@@ -200,8 +197,10 @@ if ! "$dry_run"; then
   printf '\nAll six training runs finished. Starting evaluation.\n'
   for training_condition in "${training_conditions[@]}"; do
     for training_seed in "${training_seeds[@]}"; do
-      run_dir="artifacts/main/${training_condition}_seed_${training_seed}"
-      if [[ ! -f "$run_dir/final_model.zip" || ! -f "$run_dir/metadata.json" ]]; then
+      run_dir="$final_dir/${training_condition}_seed_${training_seed}"
+      if [[ ! -f "$run_dir/final_model.zip" || \
+            ! -f "$run_dir/vecnormalize.pkl" || \
+            ! -f "$run_dir/metadata.json" ]]; then
         printf 'Required training output is missing: %s\n' "$run_dir" >&2
         exit 1
       fi
@@ -244,5 +243,5 @@ if [[ "$row_count" != "540" ]]; then
 fi
 
 printf '\nMain experiment complete.\n'
-printf 'Training outputs: artifacts/main/\n'
+printf 'Training and evaluation outputs: %s/\n' "$final_dir"
 printf 'Evaluation results: %s\n' "$results_csv"

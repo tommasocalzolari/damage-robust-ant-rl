@@ -6,6 +6,9 @@ import gymnasium as gym
 import numpy as np
 
 
+ANT_ENV_ID = "Ant-v5"
+ANT_HEALTHY_REWARD = 3.0
+
 # Ant-v5's actuators are unnamed. The mapping combines their target joints with
 # the body directions documented by Gymnasium.
 LEG_ACTION_INDICES = {
@@ -14,6 +17,15 @@ LEG_ACTION_INDICES = {
     "back_left": (6, 7),  # hip_3, ankle_3
     "back_right": (0, 1),  # hip_4, ankle_4
 }
+
+
+def make_ant_env(**kwargs: Any) -> gym.Env:
+    """Create the Ant environment used by the project."""
+    return gym.make(
+        ANT_ENV_ID,
+        healthy_reward=ANT_HEALTHY_REWARD,
+        **kwargs,
+    )
 
 
 class AntDamageWrapper(gym.ActionWrapper):

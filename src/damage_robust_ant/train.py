@@ -8,6 +8,7 @@ import subprocess
 import time
 from importlib.metadata import version
 from pathlib import Path
+from typing import Callable
 
 import gymnasium as gym
 import numpy as np
@@ -21,12 +22,23 @@ from stable_baselines3.common.callbacks import (
 )
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.torch_layers import FlattenExtractor
-from stable_baselines3.common.vec_env import VecCheckNan, VecEnv
+from stable_baselines3.common.vec_env import VecCheckNan, VecEnv, VecNormalize
 
-from damage_robust_ant.damage import AntDamageWrapper, LEG_ACTION_INDICES
+from damage_robust_ant.damage import (
+    ANT_ENV_ID,
+    ANT_HEALTHY_REWARD,
+    AntDamageWrapper,
+    LEG_ACTION_INDICES,
+    make_ant_env,
+)
 
 
 PROGRESS_INTERVAL_SECONDS = 300.0
+TARGET_KL = 0.02
+NORMALIZATION_CLIP = 10.0
+FINAL_LEARNING_RATE = 1e-4
+PPO_EPOCHS = 10
+TORCH_THREADS = 1
 
 
 def _format_duration(seconds: float) -> str:
@@ -135,12 +147,14 @@ def make_training_env(
     num_envs: int,
     seed: int,
     monitor_dir: Path,
+    *,
+    normalize: bool = False,
 ) -> VecEnv:
     """Create monitored vectorized Ant environments for one condition."""
     damage_mode = "nominal" if condition == "nominal" else "random"
 
     def make_env() -> gym.Env:
-        return AntDamageWrapper(gym.make("Ant-v5"), mode=damage_mode)
+        return AntDamageWrapper(make_ant_env(), mode=damage_mode)
 
     vector_env = make_vec_env(
         make_env,
@@ -148,7 +162,47 @@ def make_training_env(
         seed=seed,
         monitor_dir=str(monitor_dir),
     )
+    if normalize:
+        vector_env = VecNormalize(
+            vector_env,
+            norm_obs=True,
+            norm_reward=True,
+            clip_obs=NORMALIZATION_CLIP,
+            clip_reward=NORMALIZATION_CLIP,
+            gamma=0.99,
+        )
     return VecCheckNan(vector_env, raise_exception=True, check_inf=True)
+
+
+def load_normalized_env(
+    normalizer_path: Path,
+    condition: str,
+    num_envs: int,
+    seed: int,
+) -> VecEnv:
+    """Load frozen normalization statistics around fresh Ant environments."""
+    damage_mode = "nominal" if condition == "nominal" else "random"
+
+    def make_env() -> gym.Env:
+        return AntDamageWrapper(make_ant_env(), mode=damage_mode)
+
+    vector_env = make_vec_env(make_env, n_envs=num_envs, seed=seed)
+    normalized_env = VecNormalize.load(str(normalizer_path), vector_env)
+    normalized_env.training = False
+    normalized_env.norm_reward = False
+    return VecCheckNan(normalized_env, raise_exception=True, check_inf=True)
+
+
+def linear_schedule(
+    initial_value: float,
+    final_value: float = 0.0,
+) -> Callable[[float], float]:
+    """Linearly decay a scalar from its initial to final value."""
+
+    def schedule(progress_remaining: float) -> float:
+        return final_value + progress_remaining * (initial_value - final_value)
+
+    return schedule
 
 
 def make_ppo(
@@ -157,6 +211,11 @@ def make_ppo(
     clip_range: float,
     seed: int,
     tensorboard_dir: Path,
+    *,
+    anneal_learning_rate: bool = False,
+    final_learning_rate: float = 0.0,
+    n_epochs: int = 10,
+    target_kl: float | None = None,
 ) -> PPO:
     """Create PPO with the fixed project configuration."""
     policy_kwargs = {
@@ -177,10 +236,14 @@ def make_ppo(
     return PPO(
         policy="MlpPolicy",
         env=env,
-        learning_rate=learning_rate,
+        learning_rate=(
+            linear_schedule(learning_rate, final_learning_rate)
+            if anneal_learning_rate
+            else learning_rate
+        ),
         n_steps=2_048,
         batch_size=64,
-        n_epochs=10,
+        n_epochs=n_epochs,
         gamma=0.99,
         gae_lambda=0.95,
         clip_range=clip_range,
@@ -193,7 +256,7 @@ def make_ppo(
         sde_sample_freq=-1,
         rollout_buffer_class=RolloutBuffer,
         rollout_buffer_kwargs={},
-        target_kl=None,
+        target_kl=target_kl,
         stats_window_size=100,
         tensorboard_log=str(tensorboard_dir),
         policy_kwargs=policy_kwargs,
@@ -211,6 +274,7 @@ def _prepare_output_dir(output_dir: Path) -> dict[str, Path]:
         "monitor": output_dir / "monitor",
         "tensorboard": output_dir / "tensorboard",
         "model": output_dir / "final_model.zip",
+        "normalizer": output_dir / "vecnormalize.pkl",
         "metadata": output_dir / "metadata.json",
     }
     for name in ("checkpoints", "monitor", "tensorboard"):
@@ -233,6 +297,9 @@ def _ppo_configuration(
     learning_rate: float,
     clip_range: float,
     seed: int,
+    *,
+    anneal_learning_rate: bool = False,
+    final_learning_rate: float = 0.0,
 ) -> dict[str, object]:
     policy = model.policy
     return {
@@ -254,7 +321,12 @@ def _ppo_configuration(
             "optimizer_defaults": policy.optimizer.defaults,
         },
         "learning_rate": learning_rate,
-        "learning_rate_schedule": "constant",
+        "final_learning_rate": (
+            final_learning_rate if anneal_learning_rate else learning_rate
+        ),
+        "learning_rate_schedule": (
+            "linear" if anneal_learning_rate else "constant"
+        ),
         "n_steps": model.n_steps,
         "batch_size": model.batch_size,
         "n_epochs": model.n_epochs,
@@ -277,6 +349,26 @@ def _ppo_configuration(
         "device_requested": "auto",
         "device_resolved": str(model.device),
         "reset_num_timesteps": True,
+    }
+
+
+def _normalization_configuration() -> dict[str, object]:
+    return {
+        "normalize_observations": True,
+        "normalize_rewards_during_training": True,
+        "normalize_rewards_during_evaluation": False,
+        "clip_observations": NORMALIZATION_CLIP,
+        "clip_rewards": NORMALIZATION_CLIP,
+        "gamma": 0.99,
+    }
+
+
+def _environment_configuration() -> dict[str, object]:
+    return {
+        "environment_id": ANT_ENV_ID,
+        "healthy_reward": ANT_HEALTHY_REWARD,
+        "terminate_when_unhealthy": True,
+        "walking_priority": "higher healthy reward makes early falls more costly",
     }
 
 
@@ -346,6 +438,7 @@ def _assert_finite_model(model: PPO) -> None:
 
 def run_training(args: argparse.Namespace) -> Path:
     """Train, save, and verify one PPO policy."""
+    torch.set_num_threads(TORCH_THREADS)
     git_commit, tracked_worktree_clean = _git_provenance()
     paths = _prepare_output_dir(args.output_dir)
     checkpoint_settings = _checkpoint_settings(args.timesteps, args.num_envs)
@@ -362,6 +455,7 @@ def run_training(args: argparse.Namespace) -> Path:
             args.num_envs,
             args.seed,
             paths["monitor"],
+            normalize=True,
         )
         model = make_ppo(
             env,
@@ -369,11 +463,16 @@ def run_training(args: argparse.Namespace) -> Path:
             args.clip_range,
             args.seed,
             paths["tensorboard"],
+            anneal_learning_rate=True,
+            final_learning_rate=FINAL_LEARNING_RATE,
+            n_epochs=PPO_EPOCHS,
+            target_kl=TARGET_KL,
         )
         checkpoint_callback = CheckpointCallback(
             save_freq=checkpoint_settings["callback_frequency"],
             save_path=str(paths["checkpoints"]),
             name_prefix="ppo",
+            save_vecnormalize=True,
         )
         progress_callback = TrainingProgressCallback(
             requested_steps=args.timesteps,
@@ -396,17 +495,35 @@ def run_training(args: argparse.Namespace) -> Path:
 
         _assert_finite_model(model)
         model.save(paths["model"])
-        reloaded_model = PPO.load(paths["model"], env=env, device="auto")
-        if reloaded_model.num_timesteps != actual_timesteps:
-            raise RuntimeError("reloaded model has an unexpected timestep count")
-        _assert_finite_model(reloaded_model)
-        observation = env.reset()
-        action, _ = reloaded_model.predict(observation, deterministic=True)
-        if not np.isfinite(action).all():
-            raise RuntimeError("reloaded model produced a non-finite action")
+        normalizer = model.get_vec_normalize_env()
+        if normalizer is None:
+            raise RuntimeError("training environment has no normalization state")
+        normalizer.save(str(paths["normalizer"]))
+
+        verification_env = load_normalized_env(
+            paths["normalizer"],
+            args.condition,
+            args.num_envs,
+            args.seed,
+        )
+        try:
+            reloaded_model = PPO.load(
+                paths["model"],
+                env=verification_env,
+                device="auto",
+            )
+            if reloaded_model.num_timesteps != actual_timesteps:
+                raise RuntimeError("reloaded model has an unexpected timestep count")
+            _assert_finite_model(reloaded_model)
+            observation = verification_env.reset()
+            action, _ = reloaded_model.predict(observation, deterministic=True)
+            if not np.isfinite(action).all():
+                raise RuntimeError("reloaded model produced a non-finite action")
+        finally:
+            verification_env.close()
 
         metadata = {
-            "schema_version": 1,
+            "schema_version": 2,
             "condition": args.condition,
             "seed": args.seed,
             "num_envs": args.num_envs,
@@ -417,21 +534,28 @@ def run_training(args: argparse.Namespace) -> Path:
                 args.learning_rate,
                 args.clip_range,
                 args.seed,
+                anneal_learning_rate=True,
+                final_learning_rate=FINAL_LEARNING_RATE,
             ),
+            "normalization_configuration": _normalization_configuration(),
+            "environment_configuration": _environment_configuration(),
             "damage_configuration": _damage_configuration(args.condition),
             "checkpoint_configuration": checkpoint_settings,
             "package_versions": _package_versions(),
             "elapsed_training_seconds": elapsed_seconds,
             "training_fps": actual_timesteps / elapsed_seconds,
+            "torch_threads": torch.get_num_threads(),
             "git_commit": git_commit,
             "tracked_worktree_clean": tracked_worktree_clean,
             "validation": {
                 "finite_model_parameters": True,
                 "final_model_reloaded": True,
+                "normalization_state_reloaded": True,
                 "finite_reloaded_prediction": True,
             },
             "outputs": {
                 "final_model": paths["model"].name,
+                "normalizer": paths["normalizer"].name,
                 "checkpoints": paths["checkpoints"].name,
                 "monitor": paths["monitor"].name,
                 "tensorboard": paths["tensorboard"].name,

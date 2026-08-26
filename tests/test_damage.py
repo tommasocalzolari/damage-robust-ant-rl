@@ -10,7 +10,14 @@ import pytest
 from stable_baselines3.common.env_checker import check_env
 
 from damage_robust_ant.damage import AntDamageWrapper, LEG_ACTION_INDICES
-from damage_robust_ant.view import DAMAGE_COLOR, _highlight_damage
+from damage_robust_ant.view import (
+    DAMAGE_COLOR,
+    GOAL_COLOR,
+    START_COLOR,
+    _add_position_markers,
+    _highlight_damage,
+    parse_args as parse_view_args,
+)
 
 
 def test_leg_mapping_matches_ant_model() -> None:
@@ -264,6 +271,42 @@ def test_viewer_highlights_complete_damaged_leg(
         np.testing.assert_array_equal(model.geom_rgba, original_colors)
     finally:
         env.close()
+
+
+def test_viewer_goal_options_are_parsed() -> None:
+    """Manual viewing can show progress toward a fixed forward target."""
+    args = parse_view_args(
+        [
+            "--goal-distance",
+            "7.5",
+            "--progress-interval",
+            "25",
+            "--stop-at-goal",
+        ]
+    )
+
+    assert args.goal_distance == 7.5
+    assert args.progress_interval == 25
+    assert args.stop_at_goal is True
+
+
+def test_viewer_adds_start_and_goal_markers() -> None:
+    """Start and goal markers are placed along the forward x direction."""
+    viewer = Mock()
+    renderer = Mock(viewer=viewer)
+    env = Mock()
+    env.unwrapped.mujoco_renderer = renderer
+
+    _add_position_markers(env, start_x=1.0, start_y=-2.0, goal_distance=5.0)
+
+    assert viewer.add_marker.call_count == 2
+    start_marker, goal_marker = [
+        call.kwargs for call in viewer.add_marker.call_args_list
+    ]
+    np.testing.assert_allclose(start_marker["pos"], [1.0, -2.0, 0.03])
+    np.testing.assert_allclose(goal_marker["pos"], [6.0, -2.0, 0.03])
+    np.testing.assert_array_equal(start_marker["rgba"], START_COLOR)
+    np.testing.assert_array_equal(goal_marker["rgba"], GOAL_COLOR)
 
 
 @pytest.mark.parametrize(

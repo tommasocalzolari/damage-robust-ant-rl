@@ -6,12 +6,12 @@ import math
 from pathlib import Path
 from typing import Any
 
-import gymnasium as gym
 import numpy as np
 import torch
 from stable_baselines3 import PPO
+from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
-from damage_robust_ant.damage import AntDamageWrapper, LEG_ACTION_INDICES
+from damage_robust_ant.damage import AntDamageWrapper, LEG_ACTION_INDICES, make_ant_env
 
 
 ACTUATOR_COUNT = 8
@@ -26,7 +26,10 @@ CSV_COLUMNS = [
     "episode_length",
     "terminated_before_time_limit",
     "forward_distance",
+    "lateral_distance",
+    "horizontal_distance",
     "mean_forward_speed",
+    "mean_horizontal_speed",
     *[
         f"mean_abs_raw_command_actuator_{index}"
         for index in range(ACTUATOR_COUNT)
@@ -71,6 +74,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", type=_existing_file, required=True)
     parser.add_argument(
+        "--normalizer",
+        type=_existing_file,
+        help="saved VecNormalize state; defaults to vecnormalize.pkl beside the model",
+    )
+    parser.add_argument(
         "--training-condition",
         choices=("nominal", "robust"),
         required=True,
@@ -97,7 +105,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def _make_evaluation_env(damage_leg: str, alpha: float) -> AntDamageWrapper:
-    base_env = gym.make("Ant-v5")
+    base_env = make_ant_env()
     try:
         if damage_leg == HEALTHY_LEG:
             return AntDamageWrapper(base_env, mode="nominal")
@@ -110,6 +118,41 @@ def _make_evaluation_env(damage_leg: str, alpha: float) -> AntDamageWrapper:
     except Exception:
         base_env.close()
         raise
+
+
+def _resolve_normalizer_path(
+    model_path: Path,
+    requested_path: Path | None,
+) -> Path | None:
+    if requested_path is not None:
+        return requested_path
+    adjacent_path = model_path.with_name("vecnormalize.pkl")
+    return adjacent_path if adjacent_path.is_file() else None
+
+
+def _load_observation_normalizer(
+    path: Path,
+    env: AntDamageWrapper,
+) -> VecNormalize:
+    vector_env = DummyVecEnv([lambda: env])
+    try:
+        normalizer = VecNormalize.load(str(path), vector_env)
+    except BaseException:
+        vector_env.close()
+        raise
+    normalizer.training = False
+    normalizer.norm_reward = False
+    return normalizer
+
+
+def _normalize_observation(
+    observation: np.ndarray,
+    normalizer: VecNormalize | None,
+) -> np.ndarray:
+    if normalizer is None:
+        return observation
+    batch = np.expand_dims(observation, axis=0)
+    return np.asarray(normalizer.normalize_obs(batch)[0], dtype=np.float32)
 
 
 def _finite_float(value: Any, name: str) -> float:
@@ -192,6 +235,7 @@ def _evaluate_episodes(
     model: PPO,
     env: AntDamageWrapper,
     args: argparse.Namespace,
+    normalizer: VecNormalize | None = None,
 ) -> list[dict[str, object]]:
     initial_timesteps, initial_state = _policy_snapshot(model)
     time_step = _finite_float(env.unwrapped.dt, "environment time step")
@@ -205,6 +249,7 @@ def _evaluate_episodes(
         _finite_array(observation, "reset observation")
         _check_damage_info(reset_info, args.damage_leg, args.alpha)
         initial_x = _finite_float(reset_info.get("x_position"), "initial x position")
+        initial_y = _finite_float(reset_info.get("y_position"), "initial y position")
 
         episode_return = 0.0
         episode_length = 0
@@ -212,7 +257,9 @@ def _evaluate_episodes(
         applied_command_sum = np.zeros(ACTUATOR_COUNT, dtype=np.float64)
 
         while True:
-            action, _ = model.predict(observation, deterministic=True)
+            policy_observation = _normalize_observation(observation, normalizer)
+            _finite_array(policy_observation, "normalized observation")
+            action, _ = model.predict(policy_observation, deterministic=True)
             action = _finite_array(action, "policy action", (ACTUATOR_COUNT,))
             observation, reward, terminated, truncated, step_info = env.step(action)
             _finite_array(observation, "step observation")
@@ -247,13 +294,23 @@ def _evaluate_episodes(
                     step_info.get("x_position"),
                     "final x position",
                 )
+                final_y = _finite_float(
+                    step_info.get("y_position"),
+                    "final y position",
+                )
                 break
 
         forward_distance = final_x - initial_x
+        lateral_distance = final_y - initial_y
+        horizontal_distance = math.hypot(forward_distance, lateral_distance)
         mean_forward_speed = forward_distance / (episode_length * time_step)
+        mean_horizontal_speed = horizontal_distance / (episode_length * time_step)
         _finite_float(episode_return, "episode return")
         _finite_float(forward_distance, "forward distance")
+        _finite_float(lateral_distance, "lateral distance")
+        _finite_float(horizontal_distance, "horizontal distance")
         _finite_float(mean_forward_speed, "mean forward speed")
+        _finite_float(mean_horizontal_speed, "mean horizontal speed")
 
         mean_raw_commands = raw_command_sum / episode_length
         mean_applied_commands = applied_command_sum / episode_length
@@ -267,7 +324,10 @@ def _evaluate_episodes(
             "episode_length": episode_length,
             "terminated_before_time_limit": bool(terminated and not truncated),
             "forward_distance": forward_distance,
+            "lateral_distance": lateral_distance,
+            "horizontal_distance": horizontal_distance,
             "mean_forward_speed": mean_forward_speed,
+            "mean_horizontal_speed": mean_horizontal_speed,
         }
         row.update(
             {
@@ -346,7 +406,13 @@ def _write_results(
 def _print_summary(args: argparse.Namespace, rows: list[dict[str, object]]) -> None:
     mean_return = float(np.mean([row["episode_return"] for row in rows]))
     mean_distance = float(np.mean([row["forward_distance"] for row in rows]))
+    mean_horizontal_distance = float(
+        np.mean([row["horizontal_distance"] for row in rows])
+    )
     mean_speed = float(np.mean([row["mean_forward_speed"] for row in rows]))
+    mean_horizontal_speed = float(
+        np.mean([row["mean_horizontal_speed"] for row in rows])
+    )
     mean_length = float(np.mean([row["episode_length"] for row in rows]))
     early_rate = float(
         np.mean([row["terminated_before_time_limit"] for row in rows])
@@ -358,7 +424,10 @@ def _print_summary(args: argparse.Namespace, rows: list[dict[str, object]]) -> N
     )
     print(
         f"mean_return={mean_return:.3f} mean_distance={mean_distance:.3f} "
-        f"mean_speed={mean_speed:.3f} mean_length={mean_length:.1f} "
+        f"mean_horizontal_distance={mean_horizontal_distance:.3f} "
+        f"mean_speed={mean_speed:.3f} "
+        f"mean_horizontal_speed={mean_horizontal_speed:.3f} "
+        f"mean_length={mean_length:.1f} "
         f"early_termination_rate={early_rate:.3f}"
     )
     print("Model parameters unchanged: yes")
@@ -370,11 +439,20 @@ def run_evaluation(args: argparse.Namespace) -> Path:
     existing_rows = _load_existing_rows(args.output_csv, args.append)
     model = PPO.load(args.model, device="cpu")
     env: AntDamageWrapper | None = None
+    normalizer: VecNormalize | None = None
     try:
         env = _make_evaluation_env(args.damage_leg, args.alpha)
-        rows = _evaluate_episodes(model, env, args)
+        normalizer_path = _resolve_normalizer_path(
+            args.model,
+            getattr(args, "normalizer", None),
+        )
+        if normalizer_path is not None:
+            normalizer = _load_observation_normalizer(normalizer_path, env)
+        rows = _evaluate_episodes(model, env, args, normalizer)
     finally:
-        if env is not None:
+        if normalizer is not None:
+            normalizer.close()
+        elif env is not None:
             env.close()
 
     _write_results(args.output_csv, existing_rows, rows, args.append)

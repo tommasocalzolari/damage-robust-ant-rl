@@ -37,11 +37,14 @@ def _validation_frame(condition: str) -> pd.DataFrame:
                     "damage_leg": leg,
                     "damage_alpha": alpha,
                     "episode_return": 10.0,
-                    "episode_length": 1_000,
-                    "terminated_before_time_limit": episode_index == 0,
-                    "forward_distance": 1.0 if positive else -0.1,
-                    "mean_forward_speed": 0.5,
-                    **{
+                        "episode_length": 1_000,
+                        "terminated_before_time_limit": episode_index == 0,
+                        "forward_distance": 1.0 if positive else -0.1,
+                        "lateral_distance": 0.0,
+                        "horizontal_distance": 1.0 if positive else 0.1,
+                        "mean_forward_speed": 0.5,
+                        "mean_horizontal_speed": 0.5,
+                        **{
                         f"mean_abs_raw_command_actuator_{index}": 0.25
                         for index in range(8)
                     },

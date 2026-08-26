@@ -10,6 +10,7 @@ import pytest
 import torch
 
 import damage_robust_ant.evaluate as evaluation
+from damage_robust_ant.damage import ANT_HEALTHY_REWARD
 from damage_robust_ant.evaluate import (
     CSV_COLUMNS,
     _evaluate_episodes,
@@ -31,9 +32,11 @@ class FakeModel:
             else action
         )
         self.deterministic_arguments = []
+        self.observations = []
 
     def predict(self, observation, deterministic=False):
         self.deterministic_arguments.append(deterministic)
+        self.observations.append(np.asarray(observation).copy())
         return self.action.copy(), None
 
     def learn(self, *args, **kwargs):
@@ -60,9 +63,10 @@ class TrackingEnv:
         self.reset_seeds = []
         self.closed = False
 
-    def _info(self, x_position: float) -> dict[str, object]:
+    def _info(self, x_position: float, y_position: float) -> dict[str, object]:
         return {
             "x_position": x_position,
+            "y_position": y_position,
             "damage_leg": self.damage_leg,
             "damage_alpha": self.damage_alpha,
         }
@@ -71,7 +75,8 @@ class TrackingEnv:
         self.reset_seeds.append(seed)
         self.step_count = 0
         self.initial_x = seed / 1_000
-        return np.array([0.0]), self._info(self.initial_x)
+        self.initial_y = seed / 2_000
+        return np.array([0.0]), self._info(self.initial_x, self.initial_y)
 
     def step(self, action: np.ndarray):
         self.step_count += 1
@@ -85,13 +90,14 @@ class TrackingEnv:
         terminated = finished and not self.truncated
         truncated = finished and self.truncated
         x_position = self.initial_x + (1.0 if self.step_count == 1 else 3.0)
+        y_position = self.initial_y + (1.0 if self.step_count == 1 else 4.0)
         reward = 1.5 if self.step_count == 1 else 2.5
         return (
             np.array([float(self.step_count)]),
             reward,
             terminated,
             truncated,
-            self._info(x_position),
+            self._info(x_position, y_position),
         )
 
     def close(self) -> None:
@@ -137,6 +143,7 @@ def test_evaluation_argument_defaults_and_validation(tmp_path) -> None:
     assert args.evaluation_seed == 0
     assert args.episodes == 10
     assert args.append is False
+    assert args.normalizer is None
 
     invalid_arguments = [
         ["--damage-leg", "healthy", "--alpha", "0.5"],
@@ -183,7 +190,10 @@ def test_episode_metrics_seeds_commands_and_policy_are_controlled(tmp_path) -> N
         assert row["episode_length"] == 2
         assert row["terminated_before_time_limit"] is True
         assert row["forward_distance"] == pytest.approx(3.0)
+        assert row["lateral_distance"] == pytest.approx(4.0)
+        assert row["horizontal_distance"] == pytest.approx(5.0)
         assert row["mean_forward_speed"] == pytest.approx(3.0)
+        assert row["mean_horizontal_speed"] == pytest.approx(5.0)
         for index, raw_value in enumerate(model.action):
             raw_key = f"mean_abs_raw_command_actuator_{index}"
             applied_key = f"mean_abs_applied_command_actuator_{index}"
@@ -201,6 +211,24 @@ def test_time_limit_is_not_recorded_as_early_termination(tmp_path) -> None:
         args,
     )[0]
     assert row["terminated_before_time_limit"] is False
+
+
+def test_evaluation_normalizes_only_the_policy_observation(tmp_path) -> None:
+    """Saved statistics transform policy input without changing environment data."""
+
+    class FakeNormalizer:
+        def normalize_obs(self, observations):
+            return observations + 10.0
+
+    args = make_args(tmp_path, episodes=1)
+    model = FakeModel()
+    env = TrackingEnv(args.damage_leg, args.alpha)
+
+    row = _evaluate_episodes(model, env, args, FakeNormalizer())[0]
+
+    assert [value.tolist() for value in model.observations] == [[10.0], [11.0]]
+    assert row["forward_distance"] == pytest.approx(3.0)
+    assert row["horizontal_distance"] == pytest.approx(5.0)
 
 
 def test_run_writes_exact_schema_appends_and_closes(monkeypatch, tmp_path) -> None:
@@ -290,3 +318,12 @@ def test_real_ant_episode_produces_finite_results(tmp_path) -> None:
             "terminated_before_time_limit",
         }
     )
+
+
+def test_evaluation_uses_walking_first_ant_reward() -> None:
+    """Evaluation uses the same Ant reward setting as training."""
+    env = _make_evaluation_env("healthy", 1.0)
+    try:
+        assert env.unwrapped._healthy_reward == ANT_HEALTHY_REWARD
+    finally:
+        env.close()
