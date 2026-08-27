@@ -1,0 +1,162 @@
+{
+  "schema_version": 2,
+  "condition": "robust",
+  "seed": 5,
+  "num_envs": 4,
+  "requested_environment_steps": 5000000,
+  "actual_environment_steps": 5005312,
+  "ppo_configuration": {
+    "policy": "MlpPolicy",
+    "policy_class": "ActorCriticPolicy",
+    "policy_kwargs": {
+      "net_arch": {
+        "pi": [
+          256,
+          256
+        ],
+        "vf": [
+          256,
+          256
+        ]
+      },
+      "activation_fn": "Tanh",
+      "ortho_init": true,
+      "log_std_init": 0.0,
+      "full_std": true,
+      "use_expln": false,
+      "squash_output": false,
+      "features_extractor_class": "FlattenExtractor",
+      "features_extractor_kwargs": {},
+      "share_features_extractor": true,
+      "normalize_images": true,
+      "optimizer_class": "Adam",
+      "optimizer_defaults": {
+        "lr": 0.0003,
+        "betas": [
+          0.9,
+          0.999
+        ],
+        "eps": 1e-05,
+        "weight_decay": 0,
+        "amsgrad": false,
+        "maximize": false,
+        "foreach": null,
+        "capturable": false,
+        "differentiable": false,
+        "fused": null,
+        "decoupled_weight_decay": false
+      }
+    },
+    "learning_rate": 0.0003,
+    "final_learning_rate": 0.0001,
+    "learning_rate_schedule": "linear",
+    "n_steps": 2048,
+    "batch_size": 64,
+    "n_epochs": 10,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "clip_range": 0.2,
+    "clip_range_schedule": "constant",
+    "clip_range_vf": null,
+    "normalize_advantage": true,
+    "ent_coef": 0.0,
+    "vf_coef": 0.5,
+    "max_grad_norm": 0.5,
+    "use_sde": false,
+    "sde_sample_freq": -1,
+    "rollout_buffer_class": "RolloutBuffer",
+    "rollout_buffer_kwargs": {},
+    "target_kl": 0.02,
+    "stats_window_size": 100,
+    "seed": 5,
+    "device_requested": "auto",
+    "device_resolved": "cpu",
+    "reset_num_timesteps": true
+  },
+  "normalization_configuration": {
+    "normalize_observations": true,
+    "normalize_rewards_during_training": true,
+    "normalize_rewards_during_evaluation": false,
+    "clip_observations": 10.0,
+    "clip_rewards": 10.0,
+    "gamma": 0.99
+  },
+  "environment_configuration": {
+    "environment_id": "Ant-v5",
+    "healthy_reward": 3.0,
+    "terminate_when_unhealthy": true,
+    "walking_priority": "higher healthy reward makes early falls more costly"
+  },
+  "damage_configuration": {
+    "mode": "random",
+    "sample_timing": "episode_reset",
+    "fixed_within_episode": true,
+    "healthy_probability": 0.25,
+    "leg_selection": "uniform",
+    "legs": [
+      "front_left",
+      "front_right",
+      "back_left",
+      "back_right"
+    ],
+    "leg_action_indices": {
+      "front_left": [
+        2,
+        3
+      ],
+      "front_right": [
+        4,
+        5
+      ],
+      "back_left": [
+        6,
+        7
+      ],
+      "back_right": [
+        0,
+        1
+      ]
+    },
+    "alpha_distribution": "uniform",
+    "alpha_range": [
+      0.25,
+      1.0
+    ],
+    "actuators_scaled_per_damaged_leg": 2
+  },
+  "checkpoint_configuration": {
+    "requested_interval_environment_steps": 100000,
+    "callback_frequency": 25000,
+    "effective_interval_environment_steps": 100000
+  },
+  "package_versions": {
+    "project": "0.1.0",
+    "gymnasium": "1.3.0",
+    "mujoco": "3.11.0",
+    "stable_baselines3": "2.9.0",
+    "torch": "2.13.0+cpu",
+    "numpy": "2.5.2",
+    "pandas": "3.0.5",
+    "matplotlib": "3.11.1",
+    "tensorboard": "2.21.0",
+    "python": "3.12.3"
+  },
+  "elapsed_training_seconds": 1930.3697694660004,
+  "training_fps": 2592.9291264153103,
+  "torch_threads": 1,
+  "git_commit": "273368d273d3bc17e974a059828636e86397c229",
+  "tracked_worktree_clean": true,
+  "validation": {
+    "finite_model_parameters": true,
+    "final_model_reloaded": true,
+    "normalization_state_reloaded": true,
+    "finite_reloaded_prediction": true
+  },
+  "outputs": {
+    "final_model": "final_model.zip",
+    "normalizer": "vecnormalize.pkl",
+    "checkpoints": "checkpoints",
+    "monitor": "monitor",
+    "tensorboard": "tensorboard"
+  }
+}
