@@ -3,10 +3,17 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 build/
 dist/
 *.tmp
 *.swp
+*.bak
+*.log
+*~
 
 # Generated experiment outputs
 artifacts/
@@ -14,5 +21,9 @@ checkpoints/
 logs/
 models/
 runs/
-videos/
+# Keep only the small final GIF demonstrations in version control.
+videos/*
+!videos/finals/
+videos/finals/*
+!videos/finals/*.gif
 events.out.tfevents.*

@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "figures": {
+    "final_training_returns.png": {
+      "source": "final TensorBoard rollout/ep_rew_mean scalars",
+      "smoothing": "SB3 trailing mean over 100 completed episodes",
+      "uncertainty": "sample standard deviation across three training seeds",
+      "caveat": "robust returns are collected under randomized damage"
+    },
+    "final_evaluation_overview.png": {
+      "source": "results/final_episode_results.csv",
+      "aggregation": "episodes within policy seed, damaged legs within severity, then training seeds",
+      "uncertainty": "all three training-seed means are shown directly; bold points are their arithmetic mean",
+      "metrics": "horizontal distance and early termination rate"
+    },
+    "final_leg_effects.png": {
+      "source": "results/final_episode_results.csv",
+      "aggregation": "10 evaluation episodes within each policy seed and damaged leg",
+      "uncertainty": "all three training-seed means are shown directly; large points are their arithmetic mean",
+      "metric": "horizontal distance"
+    },
+    "final_sensitivity.png": {
+      "source": "results/sensitivity_summary.csv",
+      "aggregation": "one selected training seed; four legs pooled at alpha=0.5",
+      "uncertainty": "not shown because the study used one training seed"
+    },
+    "final_command_redistribution.png": {
+      "source": "results/final_episode_results.csv",
+      "aggregation": "two actuator magnitudes per leg, episodes within policy seed, then training seeds",
+      "uncertainty": "sample standard deviation across three training-seed means",
+      "units": "mean absolute normalized command magnitude proxy, not physical energy"
+    },
+    "final_policy_refinement.png": {
+      "source": "matched held-out evaluation CSVs for original and refined robust seed 6",
+      "aggregation": "10 paired evaluation seeds per damage case",
+      "uncertainty": "sample standard deviation across evaluation episodes, not training seeds"
+    },
+    "ppo_stabilization_diagnostic.png": {
+      "source": "legacy and final nominal TensorBoard scalars",
+      "aggregation": "mean across three runs for each training design",
+      "uncertainty": "sample standard deviation across three runs",
+      "caveat": "development diagnostic; multiple configuration elements and seeds differ"
+    }
+  }
+}

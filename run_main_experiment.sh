@@ -94,6 +94,7 @@ preflight() {
   frozen_commit="$(git rev-parse --verify HEAD)"
 }
 
+# Freeze the code and refuse to overwrite a previous experiment.
 if "$dry_run"; then
   printf 'Dry run only: no tests, training, evaluation or file writes.\n'
   printf 'Live training summaries are printed every 5 minutes.\n\n'
@@ -110,6 +111,7 @@ else
 fi
 
 training_index=0
+# Train sequentially to keep laptop resource use predictable.
 for training_condition in "${training_conditions[@]}"; do
   for training_seed in "${training_seeds[@]}"; do
     training_index=$((training_index + 1))
@@ -153,6 +155,7 @@ if (( training_index != 6 )); then
 fi
 
 evaluation_index=0
+# Reuse the same episode seeds for every policy and damage condition.
 evaluate_condition() {
   local training_condition=$1
   local training_seed=$2

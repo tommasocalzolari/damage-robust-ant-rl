@@ -118,6 +118,7 @@ CONFIGURATION_LABELS = {
 }
 
 
+# Train and evaluate one learning-rate/clip-range variant at a time.
 def _make_training_env(
     normalizer_path: Path,
     seed: int,
@@ -277,6 +278,7 @@ def _ranking_key(record: dict[str, Any]) -> tuple[float, float, float, float, fl
     )
 
 
+# Record enough provenance to compare all four variants later.
 def _package_versions() -> dict[str, str]:
     distributions = {
         "project": "damage-robust-ant",

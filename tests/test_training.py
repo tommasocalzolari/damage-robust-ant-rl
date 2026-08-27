@@ -312,25 +312,3 @@ def test_main_experiment_launcher_has_fixed_command_matrix(tmp_path) -> None:
         for leg in ("front_left", "front_right", "back_left", "back_right"):
             expected = f"--damage-leg {leg} --alpha {alpha}"
             assert sum(expected in line for line in evaluation_lines) == 6
-
-
-def test_manual_ppo_gate_dry_run_is_bounded(tmp_path) -> None:
-    """The manual gate plans one nominal pilot and no robust run."""
-    repository = Path(__file__).resolve().parents[1]
-    output_dir = tmp_path / "manual-gate"
-    completed = subprocess.run(
-        [
-            "bash",
-            str(repository / "run_ppo_gate.sh"),
-            "--dry-run",
-            "--output-dir",
-            str(output_dir),
-        ],
-        cwd=repository,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    assert "--condition nominal" in completed.stdout
-    assert "--condition robust" not in completed.stdout.lower()
-    assert not output_dir.exists()

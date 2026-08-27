@@ -1,27 +1,90 @@
-# Damage-Robust Ant RL
+# Damage-Robust Locomotion of a Quadruped Robot Using Reinforcement Learning
 
-## Research question
+<p align="center">
+  <img width="680" src="videos/finals/complete_damage.gif" alt="Selected robust Ant policy walking with complete front-right actuator loss">
+</p>
 
-How does training under randomized single-leg actuator degradation affect the
-robustness and healthy performance of a PPO locomotion controller?
+<p align="center"><em>Selected robust policy walking with complete front-right actuator loss.</em></p>
 
-Stable Baselines3 provides the PPO implementation. This repository implements
-the Ant damage wrapper and the commands used to train, inspect and evaluate the
-policies.
+**AE4350 — Bio-Inspired Intelligence and Learning for Aerospace Applications**<br>
+**Author:** Tommaso Calzolari<br>
+**Student number:** 6430600<br>
+**Delft University of Technology**
 
-## Training conditions
+[Project report](docs/README.md) ·
+[Gymnasium Ant-v5 source](https://github.com/Farama-Foundation/Gymnasium/blob/main/gymnasium/envs/mujoco/ant_v5.py) ·
+[MuJoCo](https://github.com/google-deepmind/mujoco) ·
+[Stable-Baselines3 PPO source](https://github.com/DLR-RM/stable-baselines3/blob/master/stable_baselines3/ppo/ppo.py)
 
-Both conditions use the same PPO configuration. Nominal training leaves all
-actuator commands unchanged. Robust training samples damage once per episode:
-25% of episodes remain healthy; otherwise one leg is selected uniformly and
-its remaining actuator strength is sampled uniformly from `[0.25, 1.0]`.
+> **Research question:** How does training under randomized single-leg actuator
+> degradation affect the robustness and healthy performance of a PPO locomotion
+> controller?
 
-## Setup
+This project compares PPO locomotion policies trained normally with policies
+trained under randomized single-leg actuator degradation. Stable-Baselines3
+provides PPO; this repository implements the Ant damage model, normalized
+training pipeline, deterministic evaluation, manual viewer, experiment
+launchers, result processing and figures.
 
-Python 3.10 or newer is required. Create a virtual environment and install the
-project with its test dependencies:
+The animation is a best-case deterministic demonstration. Both actuators of
+the red front-right leg are disabled (`alpha = 0`); the policy travelled 89.6 m
+without falling during the 1,000-step episode. The multi-seed results below
+provide the experimental evidence.
+
+## Project at a glance
+
+| Component | Choice |
+| --- | --- |
+| Environment | Gymnasium `Ant-v5` with MuJoCo physics |
+| Algorithm | Stable-Baselines3 PPO |
+| Policy | Separate `[256, 256]` Tanh actor and critic networks |
+| Comparison | Nominal training versus randomized-damage training |
+| Main experiment | 3 seeds per condition, 5,000,000 requested steps per seed |
+| Evaluation | Healthy, 50% remaining strength and complete failure; all four legs |
+| Primary outcomes | Horizontal distance and early termination rate |
+| Reproducibility | Fixed seeds, configuration metadata, raw episode CSVs and processed tables |
+
+## Qualitative comparison
+
+Both clips use training seed 6, evaluation seed 307 and 50% remaining strength
+in the back-right leg. The initial state and damage condition are identical.
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="videos/finals/nominal_back_right.gif" width="100%" alt="Nominal Ant policy under back-right leg damage">
+    </td>
+    <td align="center" width="50%">
+      <img src="videos/finals/robust_back_right.gif" width="100%" alt="Robust Ant policy under back-right leg damage">
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><b>Nominal policy</b><br>51.7 m horizontal distance</td>
+    <td align="center"><b>Robust policy</b><br>70.5 m horizontal distance</td>
+  </tr>
+</table>
+
+These matched clips make the behavioral difference easy to see, but they were
+selected for visual clarity. Conclusions are based on all policies and episode
+seeds, not on these two trajectories alone.
+
+## Installation
+
+The project requires Python 3.10 or newer. It was developed and tested on
+Ubuntu with CPU-only PyTorch. On Ubuntu or Debian, install the basic system
+packages first:
 
 ```bash
+sudo apt update
+sudo apt install -y git python3 python3-venv libgl1 libglfw3
+```
+
+Clone the repository and create an isolated environment:
+
+```bash
+git clone https://github.com/tommasocalzolari/damage-robust-ant-rl.git
+cd damage-robust-ant-rl
+
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
@@ -29,291 +92,232 @@ python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2
 python -m pip install -e ".[dev]"
 ```
 
-The explicit PyTorch command installs the CPU build, which is sufficient for
-the tests and avoids downloading unused CUDA libraries on machines without an
-NVIDIA GPU.
+The editable install includes Gymnasium with MuJoCo, Stable-Baselines3,
+TensorBoard, NumPy, pandas, Matplotlib and pytest. The explicit PyTorch command
+uses the CPU wheel and avoids downloading unused CUDA libraries. Reactivate the
+environment in each new terminal with:
 
-Run the remaining commands from the repository root with the environment
-active. In a new terminal, reactivate it with `source .venv/bin/activate`.
+```bash
+source .venv/bin/activate
+```
 
-## Test
-
-Run the test suite from the repository root:
+Verify the complete installation:
 
 ```bash
 python -m pytest
 ```
 
-The suite covers the damage wrapper, training configuration and evaluation
-pipeline. It also starts `Ant-v5`, resets it and takes a simulation step to
-verify that MuJoCo works.
+The tests include a live `Ant-v5` reset-and-step check in addition to unit
+tests for damage, training, evaluation and figure generation.
 
 ## Manual viewer
 
-Open a MuJoCo window with smooth, low-strength random actions:
+Open an uncontrolled Ant using smooth low-strength random commands:
 
 ```bash
-python -m damage_robust_ant.view
+python -m damage_robust_ant.view --speed 0.5
 ```
 
-This is a visual check rather than an automated test. Without `--model`, the
-Ant uses random actions and may lose its balance. Use `--speed 0.25` for slower
-playback or `--strength 0.2` for gentler actuator commands.
-
-The viewer also supports randomized training damage and fixed evaluation
-damage:
+If the local final-training artifacts are available, view the selected robust
+policy under 50% back-left strength:
 
 ```bash
-python -m damage_robust_ant.view --damage-mode random
-python -m damage_robust_ant.view --damage-mode fixed --leg front_left --alpha 0.5
+python -m damage_robust_ant.view \
+  --model artifacts/sensitivity/robust_seed_6_1m/lr_1em04_clip_0.1/final_model.zip \
+  --normalizer artifacts/sensitivity/robust_seed_6_1m/lr_1em04_clip_0.1/vecnormalize.pkl \
+  --damage-mode fixed --leg back_left --alpha 0.5 \
+  --seed 503 --steps 1000 --speed 1.0 --goal-distance 100
 ```
 
-The damaged leg is shown in red. Random mode updates the highlight at each
-episode reset, while healthy episodes retain the original colors. The terminal
-also prints the selected leg and its remaining actuator strength.
+The damaged leg is highlighted in red. `alpha` is the fraction of actuator
+command that remains: `1.0` is healthy, `0.5` is half strength and `0.0` is
+complete command loss. While the MuJoCo window is focused:
 
-## Actuator damage
+- press `Tab` once to use Ant's tracking camera;
+- use the mouse wheel to zoom;
+- press `Space` to pause or resume;
+- use `--speed 0.5` for half-speed playback.
 
-Damage is sampled once during reset and remains fixed until the episode ends.
-Random mode produces a healthy episode 25% of the time. Otherwise, it selects
-one leg uniformly and samples its remaining strength from `[0.25, 1.0]`. Fixed
-mode accepts a chosen leg and strength in `[0, 1]`. The same strength multiplier
-is applied to that leg's hip and ankle commands.
+## Actuator damage model
 
-After each step, the wrapper retains the original command in `policy_action`
-and the scaled command sent to Ant in `applied_action`. These values support
-later command-magnitude analysis; they are not physical energy measurements.
+<p align="center">
+  <img src="figures/ant.png" width="360" alt="MuJoCo Ant joint layout">
+</p>
 
-The MuJoCo actuator objects in `Ant-v5` are unnamed. The mapping combines the
-programmatically inspected target joints with the body directions listed in the
-[official Ant-v5 documentation](https://gymnasium.farama.org/environments/mujoco/ant/):
+The action wrapper samples damage once when an episode resets and holds it
+constant until that episode ends. It scales both commands associated with one
+leg:
 
-| Leg | Action indices | Target joints |
+```text
+policy action -> select one leg -> multiply its hip and ankle commands by alpha
+              -> applied action sent to MuJoCo
+```
+
+| Leg | Action indices | MuJoCo target joints |
 | --- | --- | --- |
 | `front_left` | 2, 3 | `hip_1`, `ankle_1` |
 | `front_right` | 4, 5 | `hip_2`, `ankle_2` |
 | `back_left` | 6, 7 | `hip_3`, `ankle_3` |
 | `back_right` | 0, 1 | `hip_4`, `ankle_4` |
 
-## Smoke training
+The mapping was obtained programmatically from the `Ant-v5` MuJoCo model and
+checked against the body layout in the
+[official Ant-v5 documentation](https://gymnasium.farama.org/environments/mujoco/ant/).
 
-Run short nominal and robust training checks in separate output directories:
+Two training conditions are compared:
+
+- **Nominal:** every action reaches all eight actuators unchanged.
+- **Robust:** 25% of episodes are healthy. Otherwise, one of the four legs is
+  selected uniformly and its remaining strength is sampled uniformly from
+  `[0.25, 1.0]`.
+
+The wrapper stores the command produced by PPO as `policy_action` and the
+scaled command sent to MuJoCo as `applied_action`. Their mean absolute values
+are command-magnitude proxies, not physical energy measurements.
+
+## Training
+
+Train one policy into a new output directory:
 
 ```bash
 python -m damage_robust_ant.train \
-  --condition nominal --seed 0 --timesteps 10000 --num-envs 4 \
-  --output-dir artifacts/smoke/nominal_seed_0
-
-python -m damage_robust_ant.train \
-  --condition robust --seed 0 --timesteps 10000 --num-envs 4 \
-  --output-dir artifacts/smoke/robust_seed_0
+  --condition robust \
+  --seed 0 \
+  --timesteps 500000 \
+  --num-envs 4 \
+  --learning-rate 0.0003 \
+  --clip-range 0.2 \
+  --output-dir artifacts/experiments/robust_seed_0
 ```
 
-Each directory contains the final model, periodic checkpoints, monitor data,
-TensorBoard logs and a metadata file. All smoke outputs are stored under
-`artifacts/smoke/`, and training refuses to reuse an existing output directory.
-Generated models, checkpoints, raw Monitor and TensorBoard logs, and videos
-under `artifacts/` are ignored by Git.
+Training saves `final_model.zip`, `vecnormalize.pkl`, checkpoints, Monitor
+CSVs, TensorBoard logs and complete metadata. Output directories are never
+silently reused.
 
-Open TensorBoard to inspect the recorded episode and training metrics:
+The fixed six-policy experiment was launched with:
 
 ```bash
-tensorboard --logdir artifacts/smoke
-```
-
-Leave the command running and open <http://localhost:6006> in a browser. Press
-`Ctrl+C` in the terminal to stop it. The reduced-feature warning about
-TensorFlow is harmless here because policy training uses PyTorch.
-
-The manual viewer can also run a saved policy, including under fixed damage:
-
-```bash
-python -m damage_robust_ant.view \
-  --model artifacts/smoke/nominal_seed_0/final_model.zip
-
-python -m damage_robust_ant.view \
-  --model artifacts/smoke/robust_seed_0/final_model.zip \
-  --damage-mode fixed --leg front_left --alpha 0.5
-```
-
-The 10,000-step smoke policies only verify the training pipeline and are not
-expected to walk well. Later trained models can be passed to the same command.
-
-## Manual PPO walking gate
-
-The corrected training path adds observation and reward normalization, a KL
-early-stop guard, ten PPO update epochs, a learning-rate schedule from
-`3e-4` to `1e-4`, and a walking-first Ant reward setting
-(`healthy_reward=3.0`) so early falls are more costly without rewarding
-standing still too strongly. Before spending more
-time on robust training, run one bounded
-nominal pilot yourself:
-
-```bash
-./run_ppo_gate.sh
-```
-
-The script runs the test suite, trains 500,000 requested steps, evaluates the
-200,000-step and final checkpoints on ten deterministic healthy episodes, and
-checks model reloads, normalization files, TensorBoard KL/clip diagnostics,
-finite values, survival and horizontal distance from the episode start. It
-reports speed and forward-only distance, but neither is used as a pass/fail rule. It exits nonzero
-with `STOP` if the predefined walking gate is not met. It never starts robust
-training, reuses an existing directory, deletes artifacts, or resumes a
-partial run. Use `--dry-run` first to inspect the commands. Review a passing
-run manually before choosing the next experiment.
-
-## Controlled evaluation
-
-Evaluate a policy without further learning under a healthy or fixed-damage
-condition:
-
-```bash
-python -m damage_robust_ant.evaluate \
-  --model artifacts/smoke/nominal_seed_0/final_model.zip \
-  --training-condition nominal --training-seed 0 \
-  --damage-leg healthy --alpha 1.0 \
-  --evaluation-seed 100 --episodes 1 \
-  --output-csv artifacts/smoke/evaluation/episode_results.csv
-
-python -m damage_robust_ant.evaluate \
-  --model artifacts/smoke/nominal_seed_0/final_model.zip \
-  --training-condition nominal --training-seed 0 \
-  --damage-leg front_left --alpha 0.5 \
-  --evaluation-seed 100 --episodes 1 \
-  --output-csv artifacts/smoke/evaluation/episode_results.csv --append
-```
-
-The evaluation seed is the first episode seed; later episodes use consecutive
-seeds so that identical starting states can be reused across policies and
-damage conditions. The CSV records return, duration, forward movement and mean
-absolute commands for all eight actuators. Raw and applied command magnitudes
-are controller-command proxies, not measurements of physical energy.
-
-## Fixed main experiment
-
-The final experiment uses the walking configuration established by the
-successful nominal seed 6 recovery run: `Ant-v5` with `healthy_reward=3.0`, an
-`MlpPolicy` with separate `[256, 256]` actor and critic networks, four
-environments, normalized observations and rewards, a learning rate annealed
-from `3e-4` to `1e-4`, a clip range of `0.2`, `target_kl=0.02`, and 5,000,000
-requested environment steps per run. Nominal and robust runs use identical PPO
-settings; only the training damage distribution described above differs.
-
-After this configuration is reviewed and committed, start the complete main
-experiment with one command:
-
-```bash
+./run_main_experiment.sh --dry-run
 ./run_main_experiment.sh
 ```
 
-The launcher uses the project's `.venv` directly, so it does not need to be
-activated first. It runs the tests, trains all six policies sequentially and
-then performs the complete evaluation automatically. Keep the terminal open;
-the six 5-million-step runs will take several hours. If a command fails or the
-process is interrupted, it stops and preserves the partial outputs instead of
-deleting or reusing them.
+The dry run prints all six training and 54 evaluation commands without writing
+files. The real launcher tests the repository, trains nominal and robust seeds
+5, 6 and 7 for five million requested steps each, and then evaluates all six
+policies automatically. It prints progress approximately every five minutes
+and preserves partial outputs if interrupted. It also refuses to overwrite an
+existing `artifacts/final/` directory. Generated models and logs are local
+artifacts and are intentionally ignored by Git.
 
-The normal PPO tables remain visible as training runs. About every five minutes,
-an additional progress line reports the current run, its completed steps, the
-number of full runs still waiting and a rough training-time estimate. These
-updates are also saved in that run's console log. The estimate is recalculated
-from the current run's speed, so it can change during the experiment.
-
-To inspect all planned commands without training or writing any files, run
-`./run_main_experiment.sh --dry-run`.
-
-This fixes the training matrix as follows:
-
-| Training condition | Seeds | Requested steps per run | Output directory |
-| --- | --- | ---: | --- |
-| Nominal | 5, 6, 7 | 5,000,000 | `artifacts/final/nominal_seed_<seed>/` |
-| Robust | 5, 6, 7 | 5,000,000 | `artifacts/final/robust_seed_<seed>/` |
-
-Every command initializes a new network; smoke and pilot models and checkpoints
-are not reused. In particular, `artifacts/recovery/nominal_seed_6_5m/` is kept
-untouched as the known working policy. PPO finishes complete rollouts, so each
-new run is expected to record 5,005,312 actual steps rather than stop partway
-through a rollout. Each
-run also records its package versions, Git commit, tracked-worktree status,
-resolved configuration, elapsed time and training speed in `metadata.json`.
-
-The six final policies will be evaluated deterministically with the same ten
-episode seeds, 300 through 309, under this fixed matrix:
-
-| Evaluation condition | Damage leg | Alpha | Episodes per policy |
-| --- | --- | ---: | ---: |
-| Healthy | `healthy` | 1.0 | 10 |
-| Moderate damage | Each of the four legs | 0.5 | 10 per leg |
-| Complete failure | Each of the four legs | 0.0 | 10 per leg |
-
-The four legs are `front_left`, `front_right`, `back_left` and `back_right`.
-This gives nine conditions per policy and 540 episode rows across the six
-policies. The rows, evaluation log, models, normalizers and training logs will
-all be written under `artifacts/final/`; the combined CSV is
-`artifacts/final/evaluation/episode_results.csv`.
-
-These settings are frozen before the main results are inspected. Main training
-starts only after this configuration is reviewed and committed, and parameters
-will not be changed in response to the main results.
-
-## Post-hoc overnight locomotion run
-
-The main evaluation identified nominal seed 1 as the weakest nominal policy by
-healthy forward distance and robust seed 2 as the strongest robust policy by
-mean forward distance across the four legs at `alpha=0.5`. A separate overnight
-launcher develops those two selected seeds further:
+Inspect a training run with TensorBoard:
 
 ```bash
-./run_overnight_gait_training.sh
+tensorboard --logdir artifacts/final
 ```
 
-This is an exploratory follow-up, not part of the six-policy nominal-versus-
-robust comparison. Each policy starts again from a new network with its selected
-seed and the original fixed PPO settings; the one-million-step model weights are
-not resumed. Each run starts at timestep zero and continues uninterrupted for
-3–5 million requested steps; it is not a continuation of the main model. The
-saved models do not contain the simulator and random-number-generator states
-needed for an exact continuation.
+Then open <http://localhost:6006> and press `Ctrl+C` when finished.
 
-The launcher trains the policies sequentially, saves a complete-rollout
-checkpoint about every 250,000 requested steps and evaluates every 500,000
-steps from one million onward. It makes stopping decisions after 3, 4 and 5
-million requested steps. The five-million hard limit is never crossed. If no
-checkpoint passes by then, the best checkpoint is still saved but is clearly
-marked as not meeting the criteria. “Best” means highest target-condition
-forward distance, followed by lower early termination, higher speed, higher
-distance in the other condition and then the earlier checkpoint.
+## Experimental workflow
 
-Every validation uses deterministic actions and episode seeds 200 through 209
-under healthy operation and under each of the four damaged legs at `alpha=0.5`.
-The nominal policy is judged on its ten healthy episodes. The robust policy is
-judged on its forty pooled damaged episodes. A candidate passes when its early
-termination rate is at most 10%, mean forward speed is at least 0.5 m/s and at
-least 90% of its episodes move forward. Seeds 200 through 209 are checkpoint-
-selection data and must not be reused for the later held-out evaluation.
+Development followed a short test–pilot–experiment cycle:
 
-These are practical sustained-locomotion criteria, not a biomechanical gait-
-cycle detector: hopping or sliding could also pass. The launcher prints viewer
-commands at the end so the selected policies can be checked visually. Keep the
-terminal open; the full run is expected to take roughly 3.5 to 6 hours on the
-machine used for the main experiment, with a status update about every five
-minutes. Outputs and logs are written under `artifacts/overnight/` and remain
-untracked. An interrupted run preserves its partial files and requires review
-before a deliberate fresh restart.
+1. Verify MuJoCo, implement the damage wrapper and test exact scaling and
+   deterministic seeding.
+2. Add training, evaluation and viewing tools, then validate them with tests,
+   smoke runs and bounded pilots.
+3. Diagnose failed early policies and stabilize PPO using observation and
+   reward normalization, a linear learning-rate schedule, `target_kl=0.02`
+   and a healthy reward of `3.0`.
+4. Train the final six policies for five million steps and evaluate them on
+   common seeds under healthy, moderate-damage and complete-failure cases.
+5. Run the four-configuration sensitivity study on robust seed 6 and evaluate
+   the selected refinement on new held-out seeds.
 
-Use `./run_overnight_gait_training.sh --dry-run` to inspect both commands
-without running tests, training or evaluation. Before a real run, the launcher
-also verifies that `results/main_episode_results.csv` is the unchanged source
-used for the two seed choices.
+Automated tests and short pilot runs preceded every expensive training stage.
 
-## Repository structure
+## Results
 
-- `src/damage_robust_ant/`: damage wrapper and training, evaluation and viewing
-  commands
-- `tests/`: automated tests for the environment and experiment pipeline
-- `run_main_experiment.sh`: fixed main training and evaluation launcher
-- `run_overnight_gait_training.sh`: selected-seed staged locomotion launcher
-- `artifacts/`: local generated models, checkpoints and raw logs; ignored by
-  Git
-- `pyproject.toml`: package metadata and dependencies
+The final comparison contains 540 deterministic evaluation episodes. Values
+below are means across the three training-seed means; uncertainty is the sample
+standard deviation across those three seeds.
+
+| Remaining strength | Nominal horizontal distance | Robust horizontal distance | Nominal early termination | Robust early termination |
+| ---: | ---: | ---: | ---: | ---: |
+| 1.0, healthy | 35.17 ± 15.69 m | 35.40 ± 32.87 m | 0.0% | 6.7% |
+| 0.5 | 24.55 ± 6.42 m | 30.42 ± 29.32 m | 0.0% | 0.0% |
+| 0.0 | 8.07 ± 3.26 m | 10.06 ± 5.08 m | 0.0% | 0.0% |
+
+Seed 6 was the best policy in each training condition when performance was
+averaged across the three severity groups. The table below uses the same final
+evaluation seeds as the main comparison.
+
+| Remaining strength | Nominal seed 6 distance | Robust seed 6 distance | Nominal early termination | Robust early termination |
+| ---: | ---: | ---: | ---: | ---: |
+| 1.0, healthy | 47.53 m | 73.32 m | 0.0% | 10.0% |
+| 0.5 | 25.34 m | 64.28 m | 0.0% | 0.0% |
+| 0.0 | 9.89 m | 15.14 m | 0.0% | 0.0% |
+
+<p align="center">
+  <img src="figures/final_command_redistribution.png" width="900" alt="Nominal and robust actuator command redistribution under front-left leg damage">
+</p>
+
+With the front-left leg at half strength, the robust policy requests a somewhat
+larger command from the damaged leg while keeping the three undamaged leg
+commands at similar magnitudes. Only the damaged command is reduced before it
+reaches the simulator; the other commands remain unchanged. Together with the
+distance results, this pattern is consistent with the robust policy learning to
+redistribute effort while maintaining a balanced command pattern. Command
+magnitudes are only control proxies, so the plot supports this interpretation
+without directly measuring balance forces or mechanical energy.
+
+Across all seeds, robust training improved mean distance under damage while
+leaving healthy distance nearly unchanged. The large variation between seeds,
+especially the strong seed-6 result, prevents a general claim of improvement.
+
+The sensitivity study selected learning rate `1e-4` and clip range `0.1` for
+robust seed 6. After about one million additional steps, held-out mean distance
+was 67.96 m when healthy and 73.68 m at `alpha=0.5`, compared with 60.16 m and
+57.15 m before refinement. This selected-seed result remains separate from the
+main comparison.
+
+The selected demonstration model is stored locally at
+`artifacts/sensitivity/robust_seed_6_1m/lr_1em04_clip_0.1/final_model.zip`.
+The `1m` directory name denotes the additional sensitivity-training budget;
+the model contains 6,012,928 cumulative environment steps.
+
+The main limitations are the three training seeds, strong seed sensitivity,
+one selected sensitivity seed and simulated single-leg damage. The complete
+episode data are retained so this variation remains visible.
+
+## Report
+
+The complete AE4350 report will be placed in the [`docs/`](docs/README.md)
+directory as `docs/report.pdf`. The report contains the full method, results,
+discussion, limitations and references; this README is intended as the concise
+repository and reproduction guide.
+
+## Repository layout
+
+```text
+damage-robust-ant-rl/
+├── artifacts/
+├── docs/
+├── figures/
+├── results/
+├── src/damage_robust_ant/
+│   ├── damage.py
+│   ├── train.py
+│   ├── evaluate.py
+│   ├── view.py
+│   ├── sensitivity.py
+│   └── figures.py
+├── tests/
+├── videos/finals/
+├── run_main_experiment.sh
+└── pyproject.toml
+```
+
+`src/` contains the damage, training, evaluation, viewer, sensitivity and
+figure code. `results/`, `figures/` and `videos/finals/` contain the material
+used in the report. Generated models, normalizers, logs and raw recordings stay
+under `artifacts/` and are ignored by Git.
