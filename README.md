@@ -11,7 +11,7 @@
 **Student number:** 6430600<br>
 **Delft University of Technology**
 
-[Project report](docs/README.md) ·
+[Project report](docs/TommasoCalzolari6430600.pdf) ·
 [Gymnasium Ant-v5 source](https://github.com/Farama-Foundation/Gymnasium/blob/main/gymnasium/envs/mujoco/ant_v5.py) ·
 [MuJoCo](https://github.com/google-deepmind/mujoco) ·
 [Stable-Baselines3 PPO source](https://github.com/DLR-RM/stable-baselines3/blob/master/stable_baselines3/ppo/ppo.py)
@@ -67,28 +67,6 @@ in the back-right leg. The initial state and damage condition are identical.
 These matched clips make the behavioral difference easy to see, but they were
 selected for visual clarity. Conclusions are based on all policies and episode
 seeds, not on these two trajectories alone.
-
-To view the same nominal and robust policies under the conditions shown above,
-run the following commands from the repository root:
-
-```bash
-.venv/bin/python -m damage_robust_ant.view \
-  --model artifacts/final/nominal_seed_6/final_model.zip \
-  --normalizer artifacts/final/nominal_seed_6/vecnormalize.pkl \
-  --damage-mode fixed --leg back_right --alpha 0.5 \
-  --seed 307 --speed 0.8
-
-.venv/bin/python -m damage_robust_ant.view \
-  --model artifacts/final/robust_seed_6/final_model.zip \
-  --normalizer artifacts/final/robust_seed_6/vecnormalize.pkl \
-  --damage-mode fixed --leg back_right --alpha 0.5 \
-  --seed 307 --speed 0.8
-```
-
-Feel free to substitute a model and its matching `vecnormalize.pkl` from
-`artifacts/`. You can also change `--seed`, select `front_left`, `front_right`,
-`back_left` or `back_right` with `--leg`, and vary `--alpha` from `1.0` (no
-strength loss) to `0.0` (complete actuator failure).
 
 ## Installation
 
@@ -157,6 +135,30 @@ complete command loss. While the MuJoCo window is focused:
 - press `Tab` once to use Ant's tracking camera;
 - press `Space` to pause or resume;
 - use `--speed 0.5` for half-speed playback.
+
+---
+
+To view the same nominal and robust policies used in the demo videos above,
+run the following commands from the repository root:
+
+```bash
+.venv/bin/python -m damage_robust_ant.view \
+  --model artifacts/final/nominal_seed_6/final_model.zip \
+  --normalizer artifacts/final/nominal_seed_6/vecnormalize.pkl \
+  --damage-mode fixed --leg back_right --alpha 0.5 \
+  --seed 307 --speed 0.8
+
+.venv/bin/python -m damage_robust_ant.view \
+  --model artifacts/final/robust_seed_6/final_model.zip \
+  --normalizer artifacts/final/robust_seed_6/vecnormalize.pkl \
+  --damage-mode fixed --leg back_right --alpha 0.5 \
+  --seed 307 --speed 0.8
+```
+
+Feel free to substitute a model and its matching `vecnormalize.pkl` from
+`artifacts/`. You can also change `--seed`, select `front_left`, `front_right`,
+`back_left` or `back_right` with `--leg`, and vary `--alpha` from `1.0` (no
+strength loss) to `0.0` (complete actuator failure).
 
 ## Actuator damage model
 
