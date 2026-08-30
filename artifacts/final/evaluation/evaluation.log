@@ -1,0 +1,216 @@
+Evaluated nominal policy seed=5 damage_leg=healthy alpha=1.000 episodes=10
+mean_return=3377.350 mean_distance=40.005 mean_horizontal_distance=40.457 mean_speed=0.800 mean_horizontal_speed=0.809 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated nominal policy seed=5 damage_leg=front_left alpha=0.500 episodes=10
+mean_return=3387.795 mean_distance=37.917 mean_horizontal_distance=38.623 mean_speed=0.758 mean_horizontal_speed=0.772 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated nominal policy seed=5 damage_leg=front_right alpha=0.500 episodes=10
+mean_return=3010.413 mean_distance=18.791 mean_horizontal_distance=18.812 mean_speed=0.376 mean_horizontal_speed=0.376 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated nominal policy seed=5 damage_leg=back_left alpha=0.500 episodes=10
+mean_return=3256.725 mean_distance=29.252 mean_horizontal_distance=30.368 mean_speed=0.585 mean_horizontal_speed=0.607 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated nominal policy seed=5 damage_leg=back_right alpha=0.500 episodes=10
+mean_return=3304.418 mean_distance=32.840 mean_horizontal_distance=34.352 mean_speed=0.657 mean_horizontal_speed=0.687 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated nominal policy seed=5 damage_leg=front_left alpha=0.000 episodes=10
+mean_return=3169.492 mean_distance=22.871 mean_horizontal_distance=24.636 mean_speed=0.457 mean_horizontal_speed=0.493 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated nominal policy seed=5 damage_leg=front_right alpha=0.000 episodes=10
+mean_return=2550.707 mean_distance=0.071 mean_horizontal_distance=0.190 mean_speed=0.001 mean_horizontal_speed=0.004 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated nominal policy seed=5 damage_leg=back_left alpha=0.000 episodes=10
+mean_return=2928.803 mean_distance=11.752 mean_horizontal_distance=13.213 mean_speed=0.235 mean_horizontal_speed=0.264 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated nominal policy seed=5 damage_leg=back_right alpha=0.000 episodes=10
+mean_return=2508.877 mean_distance=1.893 mean_horizontal_distance=2.008 mean_speed=0.038 mean_horizontal_speed=0.040 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated nominal policy seed=6 damage_leg=healthy alpha=1.000 episodes=10
+mean_return=3575.613 mean_distance=47.372 mean_horizontal_distance=47.533 mean_speed=0.947 mean_horizontal_speed=0.951 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated nominal policy seed=6 damage_leg=front_left alpha=0.500 episodes=10
+mean_return=2897.751 mean_distance=22.726 mean_horizontal_distance=22.739 mean_speed=0.455 mean_horizontal_speed=0.455 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated nominal policy seed=6 damage_leg=front_right alpha=0.500 episodes=10
+mean_return=2731.803 mean_distance=12.090 mean_horizontal_distance=13.135 mean_speed=0.242 mean_horizontal_speed=0.263 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated nominal policy seed=6 damage_leg=back_left alpha=0.500 episodes=10
+mean_return=3026.256 mean_distance=24.308 mean_horizontal_distance=24.390 mean_speed=0.486 mean_horizontal_speed=0.488 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated nominal policy seed=6 damage_leg=back_right alpha=0.500 episodes=10
+mean_return=3499.508 mean_distance=40.716 mean_horizontal_distance=41.084 mean_speed=0.814 mean_horizontal_speed=0.822 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated nominal policy seed=6 damage_leg=front_left alpha=0.000 episodes=10
+mean_return=2553.185 mean_distance=1.614 mean_horizontal_distance=1.796 mean_speed=0.032 mean_horizontal_speed=0.036 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated nominal policy seed=6 damage_leg=front_right alpha=0.000 episodes=10
+mean_return=2504.314 mean_distance=0.376 mean_horizontal_distance=0.752 mean_speed=0.008 mean_horizontal_speed=0.015 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated nominal policy seed=6 damage_leg=back_left alpha=0.000 episodes=10
+mean_return=3286.445 mean_distance=24.391 mean_horizontal_distance=25.892 mean_speed=0.488 mean_horizontal_speed=0.518 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated nominal policy seed=6 damage_leg=back_right alpha=0.000 episodes=10
+mean_return=2979.984 mean_distance=10.686 mean_horizontal_distance=11.134 mean_speed=0.214 mean_horizontal_speed=0.223 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated nominal policy seed=7 damage_leg=healthy alpha=1.000 episodes=10
+mean_return=3127.907 mean_distance=17.420 mean_horizontal_distance=17.525 mean_speed=0.348 mean_horizontal_speed=0.350 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated nominal policy seed=7 damage_leg=front_left alpha=0.500 episodes=10
+mean_return=3105.948 mean_distance=16.777 mean_horizontal_distance=17.533 mean_speed=0.336 mean_horizontal_speed=0.351 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated nominal policy seed=7 damage_leg=front_right alpha=0.500 episodes=10
+mean_return=3082.564 mean_distance=16.952 mean_horizontal_distance=17.578 mean_speed=0.339 mean_horizontal_speed=0.352 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated nominal policy seed=7 damage_leg=back_left alpha=0.500 episodes=10
+mean_return=3154.493 mean_distance=17.170 mean_horizontal_distance=17.667 mean_speed=0.343 mean_horizontal_speed=0.353 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated nominal policy seed=7 damage_leg=back_right alpha=0.500 episodes=10
+mean_return=3153.374 mean_distance=17.979 mean_horizontal_distance=18.329 mean_speed=0.360 mean_horizontal_speed=0.367 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated nominal policy seed=7 damage_leg=front_left alpha=0.000 episodes=10
+mean_return=2870.582 mean_distance=2.783 mean_horizontal_distance=5.126 mean_speed=0.056 mean_horizontal_speed=0.103 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated nominal policy seed=7 damage_leg=front_right alpha=0.000 episodes=10
+mean_return=2835.382 mean_distance=0.458 mean_horizontal_distance=1.586 mean_speed=0.009 mean_horizontal_speed=0.032 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated nominal policy seed=7 damage_leg=back_left alpha=0.000 episodes=10
+mean_return=2598.963 mean_distance=1.091 mean_horizontal_distance=1.198 mean_speed=0.022 mean_horizontal_speed=0.024 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated nominal policy seed=7 damage_leg=back_right alpha=0.000 episodes=10
+mean_return=2959.916 mean_distance=8.460 mean_horizontal_distance=9.323 mean_speed=0.169 mean_horizontal_speed=0.186 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated robust policy seed=5 damage_leg=healthy alpha=1.000 episodes=10
+mean_return=3094.568 mean_distance=17.524 mean_horizontal_distance=17.762 mean_speed=0.350 mean_horizontal_speed=0.355 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated robust policy seed=5 damage_leg=front_left alpha=0.500 episodes=10
+mean_return=3011.145 mean_distance=11.152 mean_horizontal_distance=12.499 mean_speed=0.223 mean_horizontal_speed=0.250 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated robust policy seed=5 damage_leg=front_right alpha=0.500 episodes=10
+mean_return=2973.092 mean_distance=11.178 mean_horizontal_distance=12.175 mean_speed=0.224 mean_horizontal_speed=0.244 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated robust policy seed=5 damage_leg=back_left alpha=0.500 episodes=10
+mean_return=3086.651 mean_distance=16.513 mean_horizontal_distance=16.749 mean_speed=0.330 mean_horizontal_speed=0.335 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated robust policy seed=5 damage_leg=back_right alpha=0.500 episodes=10
+mean_return=3028.437 mean_distance=14.549 mean_horizontal_distance=14.811 mean_speed=0.291 mean_horizontal_speed=0.296 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated robust policy seed=5 damage_leg=front_left alpha=0.000 episodes=10
+mean_return=3005.036 mean_distance=8.494 mean_horizontal_distance=8.618 mean_speed=0.170 mean_horizontal_speed=0.172 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated robust policy seed=5 damage_leg=front_right alpha=0.000 episodes=10
+mean_return=2804.920 mean_distance=0.988 mean_horizontal_distance=1.370 mean_speed=0.020 mean_horizontal_speed=0.027 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated robust policy seed=5 damage_leg=back_left alpha=0.000 episodes=10
+mean_return=2770.254 mean_distance=4.997 mean_horizontal_distance=5.043 mean_speed=0.100 mean_horizontal_speed=0.101 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated robust policy seed=5 damage_leg=back_right alpha=0.000 episodes=10
+mean_return=2791.797 mean_distance=4.519 mean_horizontal_distance=4.838 mean_speed=0.090 mean_horizontal_speed=0.097 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated robust policy seed=6 damage_leg=healthy alpha=1.000 episodes=10
+mean_return=3705.796 mean_distance=72.368 mean_horizontal_distance=73.323 mean_speed=1.495 mean_horizontal_speed=1.514 mean_length=965.7 early_termination_rate=0.100
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated robust policy seed=6 damage_leg=front_left alpha=0.500 episodes=10
+mean_return=3674.620 mean_distance=61.005 mean_horizontal_distance=62.886 mean_speed=1.220 mean_horizontal_speed=1.258 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated robust policy seed=6 damage_leg=front_right alpha=0.500 episodes=10
+mean_return=3905.424 mean_distance=72.385 mean_horizontal_distance=74.807 mean_speed=1.448 mean_horizontal_speed=1.496 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated robust policy seed=6 damage_leg=back_left alpha=0.500 episodes=10
+mean_return=3476.256 mean_distance=51.774 mean_horizontal_distance=54.110 mean_speed=1.035 mean_horizontal_speed=1.082 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated robust policy seed=6 damage_leg=back_right alpha=0.500 episodes=10
+mean_return=3721.331 mean_distance=64.679 mean_horizontal_distance=65.315 mean_speed=1.294 mean_horizontal_speed=1.306 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated robust policy seed=6 damage_leg=front_left alpha=0.000 episodes=10
+mean_return=2737.517 mean_distance=8.761 mean_horizontal_distance=11.501 mean_speed=0.175 mean_horizontal_speed=0.230 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated robust policy seed=6 damage_leg=front_right alpha=0.000 episodes=10
+mean_return=3395.121 mean_distance=43.876 mean_horizontal_distance=45.556 mean_speed=0.878 mean_horizontal_speed=0.911 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated robust policy seed=6 damage_leg=back_left alpha=0.000 episodes=10
+mean_return=2307.257 mean_distance=0.595 mean_horizontal_distance=0.886 mean_speed=0.012 mean_horizontal_speed=0.018 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated robust policy seed=6 damage_leg=back_right alpha=0.000 episodes=10
+mean_return=1992.962 mean_distance=2.521 mean_horizontal_distance=2.605 mean_speed=0.050 mean_horizontal_speed=0.052 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated robust policy seed=7 damage_leg=healthy alpha=1.000 episodes=10
+mean_return=3047.234 mean_distance=15.050 mean_horizontal_distance=15.103 mean_speed=0.302 mean_horizontal_speed=0.303 mean_length=995.0 early_termination_rate=0.100
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated robust policy seed=7 damage_leg=front_left alpha=0.500 episodes=10
+mean_return=3079.501 mean_distance=12.675 mean_horizontal_distance=12.941 mean_speed=0.253 mean_horizontal_speed=0.259 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated robust policy seed=7 damage_leg=front_right alpha=0.500 episodes=10
+mean_return=3027.487 mean_distance=12.311 mean_horizontal_distance=12.363 mean_speed=0.246 mean_horizontal_speed=0.247 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated robust policy seed=7 damage_leg=back_left alpha=0.500 episodes=10
+mean_return=2997.746 mean_distance=11.064 mean_horizontal_distance=11.230 mean_speed=0.221 mean_horizontal_speed=0.225 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated robust policy seed=7 damage_leg=back_right alpha=0.500 episodes=10
+mean_return=3116.313 mean_distance=15.067 mean_horizontal_distance=15.214 mean_speed=0.301 mean_horizontal_speed=0.304 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated robust policy seed=7 damage_leg=front_left alpha=0.000 episodes=10
+mean_return=2913.300 mean_distance=5.062 mean_horizontal_distance=5.171 mean_speed=0.101 mean_horizontal_speed=0.103 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated robust policy seed=7 damage_leg=front_right alpha=0.000 episodes=10
+mean_return=2980.105 mean_distance=9.059 mean_horizontal_distance=9.184 mean_speed=0.181 mean_horizontal_speed=0.184 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated robust policy seed=7 damage_leg=back_left alpha=0.000 episodes=10
+mean_return=3198.138 mean_distance=19.059 mean_horizontal_distance=20.437 mean_speed=0.381 mean_horizontal_speed=0.409 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv
+Evaluated robust policy seed=7 damage_leg=back_right alpha=0.000 episodes=10
+mean_return=2890.485 mean_distance=5.351 mean_horizontal_distance=5.452 mean_speed=0.107 mean_horizontal_speed=0.109 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: artifacts/final/evaluation/episode_results.csv

@@ -27,7 +27,7 @@ training pipeline, deterministic evaluation, manual viewer, experiment
 launchers, result processing and figures.
 
 The animation is a best-case deterministic demonstration. Both actuators of
-the red front-right leg are disabled (`alpha = 0`); the policy travelled 89.6 m
+the red front-right leg are disabled (`alpha = 0`); the policy traveled 89.6 m
 without falling during the 1,000-step episode. The multi-seed results below
 provide the experimental evidence.
 
@@ -67,6 +67,28 @@ in the back-right leg. The initial state and damage condition are identical.
 These matched clips make the behavioral difference easy to see, but they were
 selected for visual clarity. Conclusions are based on all policies and episode
 seeds, not on these two trajectories alone.
+
+To view the same nominal and robust policies under the conditions shown above,
+run the following commands from the repository root:
+
+```bash
+.venv/bin/python -m damage_robust_ant.view \
+  --model artifacts/final/nominal_seed_6/final_model.zip \
+  --normalizer artifacts/final/nominal_seed_6/vecnormalize.pkl \
+  --damage-mode fixed --leg back_right --alpha 0.5 \
+  --seed 307 --speed 0.8
+
+.venv/bin/python -m damage_robust_ant.view \
+  --model artifacts/final/robust_seed_6/final_model.zip \
+  --normalizer artifacts/final/robust_seed_6/vecnormalize.pkl \
+  --damage-mode fixed --leg back_right --alpha 0.5 \
+  --seed 307 --speed 0.8
+```
+
+Feel free to substitute a model and its matching `vecnormalize.pkl` from
+`artifacts/`. You can also change `--seed`, select `front_left`, `front_right`,
+`back_left` or `back_right` with `--leg`, and vary `--alpha` from `1.0` (no
+strength loss) to `0.0` (complete actuator failure).
 
 ## Installation
 
@@ -115,11 +137,10 @@ tests for damage, training, evaluation and figure generation.
 Open an uncontrolled Ant using smooth low-strength random commands:
 
 ```bash
-python -m damage_robust_ant.view --speed 0.5
+python -m damage_robust_ant.view --speed 1.0
 ```
 
-If the local final-training artifacts are available, view the selected robust
-policy under 50% back-left strength:
+View the selected robust policy under 50% back-left strength:
 
 ```bash
 python -m damage_robust_ant.view \
@@ -134,7 +155,6 @@ command that remains: `1.0` is healthy, `0.5` is half strength and `0.0` is
 complete command loss. While the MuJoCo window is focused:
 
 - press `Tab` once to use Ant's tracking camera;
-- use the mouse wheel to zoom;
 - press `Space` to pause or resume;
 - use `--speed 0.5` for half-speed playback.
 
@@ -206,8 +226,9 @@ files. The real launcher tests the repository, trains nominal and robust seeds
 5, 6 and 7 for five million requested steps each, and then evaluates all six
 policies automatically. It prints progress approximately every five minutes
 and preserves partial outputs if interrupted. It also refuses to overwrite an
-existing `artifacts/final/` directory. Generated models and logs are local
-artifacts and are intentionally ignored by Git.
+existing `artifacts/final/` directory. Final models, normalizers, logs and
+evaluation data are retained in Git, while the bulky final-run checkpoints stay
+ignored. The sensitivity directory is retained in full, including checkpoints.
 
 Inspect a training run with TensorBoard:
 
@@ -280,7 +301,7 @@ was 67.96 m when healthy and 73.68 m at `alpha=0.5`, compared with 60.16 m and
 57.15 m before refinement. This selected-seed result remains separate from the
 main comparison.
 
-The selected demonstration model is stored locally at
+The selected demonstration model is stored at
 `artifacts/sensitivity/robust_seed_6_1m/lr_1em04_clip_0.1/final_model.zip`.
 The `1m` directory name denotes the additional sensitivity-training budget;
 the model contains 6,012,928 cumulative environment steps.
@@ -291,16 +312,18 @@ episode data are retained so this variation remains visible.
 
 ## Report
 
-The complete AE4350 report will be placed in the [`docs/`](docs/README.md)
-directory as `docs/report.pdf`. The report contains the full method, results,
-discussion, limitations and references; this README is intended as the concise
-repository and reproduction guide.
+The complete AE4350 report is available at
+[`docs/TommasoCalzolari6430600.pdf`](docs/TommasoCalzolari6430600.pdf). The report contains the full method, results,
+discussion, limitations and references; this README is the concise repository
+and reproduction guide.
 
 ## Repository layout
 
 ```text
 damage-robust-ant-rl/
 ├── artifacts/
+│   ├── final/
+│   └── sensitivity/
 ├── docs/
 ├── figures/
 ├── results/
@@ -319,5 +342,6 @@ damage-robust-ant-rl/
 
 `src/` contains the damage, training, evaluation, viewer, sensitivity and
 figure code. `results/`, `figures/` and `videos/finals/` contain the material
-used in the report. Generated models, normalizers, logs and raw recordings stay
-under `artifacts/` and are ignored by Git.
+used in the report. The final and sensitivity artifacts needed to inspect the
+reported experiments are versioned; unrelated runs and raw recordings remain
+ignored.

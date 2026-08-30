@@ -16,7 +16,7 @@ dist/
 *~
 
 # Generated experiment outputs
-artifacts/
+artifacts/*
 checkpoints/
 logs/
 models/
@@ -27,3 +27,14 @@ videos/*
 videos/finals/*
 !videos/finals/*.gif
 events.out.tfevents.*
+
+# Preserve the completed experiments needed to inspect and reproduce the results.
+!artifacts/final/
+!artifacts/final/**
+artifacts/final/**/checkpoints/
+artifacts/final/**/checkpoints/**
+!artifacts/sensitivity/
+!artifacts/sensitivity/**
+!artifacts/sensitivity_run*.log
+!artifacts/final_selected_evaluation.log
+!artifacts/preserved_robust_seed_6_holdout_evaluation.log

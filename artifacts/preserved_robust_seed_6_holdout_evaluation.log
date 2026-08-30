@@ -1,0 +1,36 @@
+Evaluated robust policy seed=6 damage_leg=healthy alpha=1.000 episodes=10
+mean_return=3468.995 mean_distance=59.164 mean_horizontal_distance=60.165 mean_speed=1.254 mean_horizontal_speed=1.277 mean_length=948.3 early_termination_rate=0.200
+Model parameters unchanged: yes
+CSV: results/preserved_robust_seed_6_holdout_episode_results.csv
+Evaluated robust policy seed=6 damage_leg=front_left alpha=0.500 episodes=10
+mean_return=3661.953 mean_distance=60.370 mean_horizontal_distance=62.146 mean_speed=1.207 mean_horizontal_speed=1.243 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: results/preserved_robust_seed_6_holdout_episode_results.csv
+Evaluated robust policy seed=6 damage_leg=front_right alpha=0.500 episodes=10
+mean_return=3594.806 mean_distance=52.715 mean_horizontal_distance=54.220 mean_speed=1.054 mean_horizontal_speed=1.084 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: results/preserved_robust_seed_6_holdout_episode_results.csv
+Evaluated robust policy seed=6 damage_leg=back_left alpha=0.500 episodes=10
+mean_return=3430.640 mean_distance=49.547 mean_horizontal_distance=51.806 mean_speed=0.991 mean_horizontal_speed=1.036 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: results/preserved_robust_seed_6_holdout_episode_results.csv
+Evaluated robust policy seed=6 damage_leg=back_right alpha=0.500 episodes=10
+mean_return=3643.795 mean_distance=59.672 mean_horizontal_distance=60.448 mean_speed=1.193 mean_horizontal_speed=1.209 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: results/preserved_robust_seed_6_holdout_episode_results.csv
+Evaluated robust policy seed=6 damage_leg=front_left alpha=0.000 episodes=10
+mean_return=2802.880 mean_distance=9.508 mean_horizontal_distance=12.804 mean_speed=0.190 mean_horizontal_speed=0.256 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: results/preserved_robust_seed_6_holdout_episode_results.csv
+Evaluated robust policy seed=6 damage_leg=front_right alpha=0.000 episodes=10
+mean_return=3533.349 mean_distance=51.971 mean_horizontal_distance=54.106 mean_speed=1.039 mean_horizontal_speed=1.082 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: results/preserved_robust_seed_6_holdout_episode_results.csv
+Evaluated robust policy seed=6 damage_leg=back_left alpha=0.000 episodes=10
+mean_return=2319.353 mean_distance=0.494 mean_horizontal_distance=0.805 mean_speed=0.010 mean_horizontal_speed=0.016 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: results/preserved_robust_seed_6_holdout_episode_results.csv
+Evaluated robust policy seed=6 damage_leg=back_right alpha=0.000 episodes=10
+mean_return=2071.003 mean_distance=3.315 mean_horizontal_distance=3.400 mean_speed=0.066 mean_horizontal_speed=0.068 mean_length=1000.0 early_termination_rate=0.000
+Model parameters unchanged: yes
+CSV: results/preserved_robust_seed_6_holdout_episode_results.csv
